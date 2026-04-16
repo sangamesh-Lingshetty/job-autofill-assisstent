@@ -13,6 +13,9 @@ Job Autofill Assistant Pro is a Manifest V3 Chrome Extension designed to help us
 - Added visible support contact details in the popup footer
 - Stored all user profile data in `chrome.storage.local` with no backend dependency
 - Added a floating `Autofill Job Application` button through `content.js`
+- Added draggable floating-button behavior with persisted position across pages
+- Added page-aware widget visibility so the button appears only when form fields are detected
+- Added page-level dismiss behavior so users can hide the floating widget on a page when it is distracting
 - Implemented smart field detection using:
   - `name`
   - `id`

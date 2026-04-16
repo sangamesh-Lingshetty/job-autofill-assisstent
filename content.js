@@ -1,10 +1,22 @@
 const STORAGE_KEY = "jobAutofillProfile";
 const BUTTON_ID = "jaa-fill-button";
+const WIDGET_ID = "jaa-fill-widget";
+const CLOSE_ID = "jaa-fill-close";
 const FEEDBACK_ID = "jaa-fill-feedback";
+const WIDGET_PREFS_KEY = "jaaFloatingWidgetPrefs";
 const DEFAULT_COUNTRY_CODE = "+91";
 const OBSERVER_CONFIG = {
   childList: true,
   subtree: true
+};
+const DEFAULT_WIDGET_PREFS = {
+  left: null,
+  top: null
+};
+const widgetRuntimeState = {
+  initializing: false,
+  dismissedForPage: false,
+  lastUrl: window.location.href
 };
 
 const mapping = {
@@ -67,21 +79,57 @@ function registerRuntimeListener() {
   }
 }
 
-function initializeFloatingButton() {
-  if (document.getElementById(BUTTON_ID)) {
+async function initializeFloatingButton() {
+  if (!document.body || document.getElementById(WIDGET_ID) || widgetRuntimeState.initializing) {
     return;
   }
+
+  widgetRuntimeState.initializing = true;
+  const widgetPrefs = await getWidgetPrefs();
+  if (document.getElementById(WIDGET_ID) || !document.body) {
+    widgetRuntimeState.initializing = false;
+    return;
+  }
+
+  const widget = document.createElement("div");
+  widget.id = WIDGET_ID;
 
   const button = document.createElement("button");
   button.id = BUTTON_ID;
   button.type = "button";
   button.textContent = "\u26A1 Autofill Job Application";
   button.setAttribute("aria-label", "Autofill job application");
-  button.addEventListener("click", handleAutofillClick);
+  button.addEventListener("click", async (event) => {
+    if (widget.dataset.dragging === "true") {
+      event.preventDefault();
+      return;
+    }
+    await handleAutofillClick();
+  });
 
-  if (document.body && !document.getElementById(BUTTON_ID)) {
-    document.body.appendChild(button);
-  }
+  const closeButton = document.createElement("button");
+  closeButton.id = CLOSE_ID;
+  closeButton.type = "button";
+  closeButton.textContent = "\u00D7";
+  closeButton.setAttribute("aria-label", "Hide autofill widget on this page");
+  closeButton.addEventListener("click", async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    widgetRuntimeState.dismissedForPage = true;
+    widget.hidden = true;
+    await saveWidgetPrefs({
+      ...widgetPrefs,
+      ...readWidgetPosition(widget)
+    });
+  });
+
+  widget.appendChild(button);
+  widget.appendChild(closeButton);
+  applyWidgetPosition(widget, widgetPrefs);
+  enableWidgetDragging(widget);
+  document.body.appendChild(widget);
+  refreshFloatingWidgetVisibility();
+  widgetRuntimeState.initializing = false;
 }
 
 async function handleAutofillClick() {
@@ -167,6 +215,115 @@ function isExtensionContextAvailable() {
 
 function getExtensionRefreshMessage() {
   return "The extension was updated. Refresh this page and try again.";
+}
+
+async function getWidgetPrefs() {
+  if (!isExtensionContextAvailable()) {
+    return { ...DEFAULT_WIDGET_PREFS };
+  }
+
+  try {
+    const stored = await chrome.storage.local.get(WIDGET_PREFS_KEY);
+    return {
+      ...DEFAULT_WIDGET_PREFS,
+      ...(stored[WIDGET_PREFS_KEY] || {})
+    };
+  } catch (error) {
+    return { ...DEFAULT_WIDGET_PREFS };
+  }
+}
+
+async function saveWidgetPrefs(prefs) {
+  if (!isExtensionContextAvailable()) {
+    return;
+  }
+
+  try {
+    await chrome.storage.local.set({
+      [WIDGET_PREFS_KEY]: {
+        ...DEFAULT_WIDGET_PREFS,
+        ...prefs
+      }
+    });
+  } catch (error) {
+    // Ignore storage failures in page context.
+  }
+}
+
+function applyWidgetPosition(widget, prefs) {
+  const left = Number.isFinite(prefs.left) ? prefs.left : window.innerWidth - 260;
+  const top = Number.isFinite(prefs.top) ? prefs.top : 16;
+  widget.style.left = `${Math.max(8, left)}px`;
+  widget.style.top = `${Math.max(8, top)}px`;
+}
+
+function readWidgetPosition(widget) {
+  return {
+    left: parseFloat(widget.style.left) || 16,
+    top: parseFloat(widget.style.top) || 16
+  };
+}
+
+function enableWidgetDragging(widget) {
+  const dragTargets = [widget.querySelector(`#${BUTTON_ID}`)];
+
+  for (const target of dragTargets) {
+    if (!target) {
+      continue;
+    }
+
+    target.addEventListener("pointerdown", (event) => startWidgetDrag(event, widget));
+  }
+}
+
+function startWidgetDrag(event, widget) {
+  if (event.button !== 0) {
+    return;
+  }
+
+  const target = event.target;
+  if (target && target.id === CLOSE_ID) {
+    return;
+  }
+
+  const rect = widget.getBoundingClientRect();
+  const offsetX = event.clientX - rect.left;
+  const offsetY = event.clientY - rect.top;
+  let moved = false;
+
+  const onMove = (moveEvent) => {
+    moved = true;
+    widget.dataset.dragging = "true";
+    const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
+    const maxTop = Math.max(8, window.innerHeight - rect.height - 8);
+    const nextLeft = clamp(moveEvent.clientX - offsetX, 8, maxLeft);
+    const nextTop = clamp(moveEvent.clientY - offsetY, 8, maxTop);
+    widget.style.left = `${nextLeft}px`;
+    widget.style.top = `${nextTop}px`;
+  };
+
+  const onUp = async () => {
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    window.setTimeout(() => {
+      widget.dataset.dragging = "false";
+    }, 0);
+
+    if (moved) {
+      const prefs = await getWidgetPrefs();
+      await saveWidgetPrefs({
+        ...prefs,
+        ...readWidgetPosition(widget)
+      });
+    }
+  };
+
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function detectFieldIntent(field) {
@@ -1238,11 +1395,35 @@ function observeDynamicPages() {
   }
 
   const observer = new MutationObserver(() => {
-    if (!document.getElementById(BUTTON_ID)) {
+    if (!document.getElementById(WIDGET_ID)) {
       initializeFloatingButton();
     }
+
+    handlePageNavigationState();
+    refreshFloatingWidgetVisibility();
   });
 
   observer.observe(document.body, OBSERVER_CONFIG);
   observeDynamicPages.started = true;
+}
+
+function handlePageNavigationState() {
+  if (widgetRuntimeState.lastUrl !== window.location.href) {
+    widgetRuntimeState.lastUrl = window.location.href;
+    widgetRuntimeState.dismissedForPage = false;
+  }
+}
+
+function refreshFloatingWidgetVisibility() {
+  const widget = document.getElementById(WIDGET_ID);
+  if (!widget) {
+    return;
+  }
+
+  const shouldShow = !widgetRuntimeState.dismissedForPage && pageHasAutofillTargets();
+  widget.hidden = !shouldShow;
+}
+
+function pageHasAutofillTargets() {
+  return detectFillableFields().length > 0 || detectRadioGroups().length > 0;
 }

@@ -299,11 +299,18 @@ body.jaa-popup-body {
   text-decoration: underline;
 }
 
-#jaa-fill-button {
+#jaa-fill-widget {
   position: fixed;
   top: 16px;
-  right: 16px;
+  left: calc(100vw - 260px);
   z-index: 2147483647;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  touch-action: none;
+}
+
+#jaa-fill-button {
   border: 0;
   border-radius: 999px;
   padding: 12px 16px;
@@ -313,6 +320,18 @@ body.jaa-popup-body {
   box-shadow: 0 12px 28px rgba(16, 24, 40, 0.22);
   cursor: pointer;
   opacity: 0.96;
+}
+
+#jaa-fill-close {
+  border: 0;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+  width: 34px;
+  height: 34px;
+  font: 700 18px/1 "Segoe UI", Tahoma, sans-serif;
 }
 
 #jaa-fill-button:hover {
