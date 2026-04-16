@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Job Autofill Assistant Pro",
-  "description": "Save your job profile once and intelligently autofill job application forms on any website.",
+  "name": "Job Autofill – Auto Fill Job Applications Fast",
+  "description": "Autofill job applications in 1 click. Save details once and fill job forms instantly on any website",
   "version": "2.0.0",
   "permissions": [
     "storage",
@@ -9,7 +9,7 @@
     "tabs"
   ],
   "action": {
-    "default_title": "Job Autofill Assistant Pro",
+    "default_title": "Job Autofill",
     "default_popup": "popup.html"
   },
   "content_scripts": [
