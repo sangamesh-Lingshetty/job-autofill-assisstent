@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Job Autofill Assistant Pro",
+  "description": "Save your job profile once and intelligently autofill job application forms on any website.",
+  "version": "2.0.0",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "tabs"
+  ],
+  "action": {
+    "default_title": "Job Autofill Assistant Pro",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
