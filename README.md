@@ -1,98 +1,123 @@
-# Job Autofill Assistant Pro
+# 🚀 Job Autofill Assistant Pro
 
-Job Autofill Assistant Pro is a Chrome Extension built with Manifest V3 that stores a candidate profile locally and autofills job application forms across different ATS and careers portals.
+Job Autofill Assistant Pro is a Chrome Extension that helps users autofill job application forms instantly using a locally stored profile.
 
-## Features
+It removes repetitive typing and speeds up job applications across multiple websites.
 
-- Saves profile data in `chrome.storage.local` only
-- Includes profile fields for full name, email, phone, password, city, current company, current role, joining date, relieving date, LinkedIn, portfolio, about, experience, motivation, salary, notice period, and yes/no preferences
-- Shows a SaaS-style popup experience with a welcome screen, setup flow, saved-profile dashboard, and edit mode
-- Lets the user trigger autofill directly from the popup on the current page
-- Injects a floating `Autofill Job Application` button on every page as an additional on-page entry point
-- Shows the floating autofill widget only when detectable form fields are present
-- Lets the floating autofill widget be dragged anywhere on the page and dismissed for the current page when it is distracting
-- Detects field intent using combined context from `name`, `id`, `placeholder`, `aria-label`, label text, and parent container text
-- Handles text inputs, textareas, number inputs, date inputs, checkboxes, dropdowns, combobox-style controls, and yes/no radio groups
-- Supports first name, middle name, last name, company name, job title, location, joining date, relieving date, and currently-working experience fields
-- Maps broader hiring terminology such as `salary expectations`, `desired salary`, `compensation`, `notice period`, and relocation questions
-- Reuses the saved phone number for WhatsApp-style form fields when needed
-- Adds a default `+91` country code to phone-based fields when missing
-- Triggers `input`, `change`, and `blur` events for modern dynamic forms
-- Uses no backend, no login, no usage limit, and no paywall
+---
 
-## Files
+## ✨ Features
 
-- `manifest.json`: Extension metadata and content script registration
-- `popup.html`: Popup welcome view, dashboard, editor, and support footer
-- `popup.js`: Popup state management, storage, autofill trigger flow, and form hydration logic
-- `content.js`: Smart detection engine, autofill logic, floating button, and feedback
-- `styles.css`: Trusted SaaS-style popup design and injected UI styles
-- `WORK_SUMMARY.md`: Ongoing implementation summary and feature log
+* ⚡ One-click autofill for job applications
+* 🧠 Smart field detection (name, email, salary, notice period, etc.)
+* 📝 Save your profile once and reuse everywhere
+* 🌐 Works across multiple job portals and ATS platforms
+* 🎯 Supports text inputs, dropdowns, radio buttons, and more
+* 🔒 100% local storage (no backend, no servers)
 
-## How To Load In Chrome
+---
 
-1. Open `chrome://extensions`
-2. Enable `Developer mode`
-3. Click `Load unpacked`
-4. Select `d:\others\autoFillform`
+## 🧠 How It Works
 
-## How To Use
+1. Install the extension
+2. Complete the profile setup
+3. Open any job application page
+4. Click **⚡ Autofill Job Application**
+5. Fields are automatically filled
 
-1. Open the extension popup
-2. Click `Start Setup`
-3. Fill in your profile details and save the profile
-4. Open any job application page
-5. Click `Autofill Current Page` from the popup, or use the floating `Autofill Job Application` button on the page
-6. Edit the saved profile anytime from the popup dashboard
+---
 
-## Supported Autofill Areas
+## 📦 Supported Autofill Fields
 
-- Identity fields such as full name, first name, middle name, last name, email, and phone
-- Job profile fields such as current company, current role, city, experience, and motivation
-- Compensation fields such as current salary, expected salary, compensation expectation, CTC, and notice period
-- Experience-section fields such as company name, job title, joining date, relieving date, currently working here, and location
-- Account-creation fields such as password on job portals that ask users to create an account during application
-- Preference fields such as relocation and current notice-period status
-- Link fields such as LinkedIn and portfolio URLs
+* **Identity** → Name, Email, Phone
+* **Profile** → City, Company, Role, Experience
+* **Compensation** → Salary, Expected CTC, Notice Period
+* **Preferences** → Relocation, Notice Status
+* **Links** → LinkedIn, Portfolio
+* **Experience Section** → Company, Job Title, Dates
 
-## Security
+---
 
-- The extension stores data locally in `chrome.storage.local` and does not send profile data to any backend or external API
-- The project does not include analytics, tracking scripts, remote code loading, or third-party SDKs
-- Autofill runs only when the user explicitly clicks the popup autofill button or the floating autofill button
-- Unknown fields are skipped to reduce accidental page modifications
-- The extension requests only the permissions needed for local storage and content-script execution
-- No payment flow, subscription system, or hidden background data collection is included
+## 🏗️ Project Structure
 
-## Privacy
+```
+├── manifest.json        # Extension configuration
+├── popup.html           # Popup UI
+├── popup.js             # Popup logic & state management
+├── content.js           # Autofill engine & field detection
+├── styles.css           # UI styles
+├── WORK_SUMMARY.md      # Development notes
+```
 
-- User profile information remains on the user's device inside Chrome extension storage
-- No resume, form content, credentials, or personal data is transmitted to a remote server by this codebase
-- The extension reads page form metadata only for local field detection and autofill matching
-- Password data, if saved by the user, is also stored locally in the browser and is not uploaded by this extension
-- Users can update or clear saved profile information at any time by editing the popup fields or removing the extension storage
+---
 
-## Chrome Web Store Review Notes
+## 🔐 Security
 
-- This extension is a local productivity tool for autofilling job application forms
-- It does not scrape accounts, bypass authentication, or automate form submission
-- It does not collect, sell, or transfer personal or sensitive user data to external services
-- It does not use remote hosted code; all logic is bundled in the extension files in this repository
-- It requires user interaction to perform autofill and does not run silent background submissions
-- If published, the Web Store listing should clearly disclose that the extension reads form labels and input metadata on job-application pages in order to match and fill saved local profile data
+* All user data is stored locally using `chrome.storage.local`
+* No external servers or APIs are used
+* No analytics, tracking scripts, or third-party SDKs
+* No remote code execution
+* Autofill runs only on user action
 
-## Policy Guidance For Publishing
+---
 
-- Provide a privacy policy that states profile data is stored locally and not transmitted to a backend
-- Describe the purpose of the `<all_urls>` content-script match clearly in the listing, since the extension needs to detect job-application forms across many sites
-- Explain that autofill is user-triggered and limited to form assistance, not automatic submission
-- Disclose that optional password autofill exists only for user-saved account-creation fields on supported job portals
-- Keep screenshots and store description aligned with the actual local-only behavior of the extension
+## 🛡️ Privacy
 
-## Notes
+* User data stays entirely on the user's device
+* No personal data is collected or transmitted externally
+* No tracking of browsing history or activity
+* Form data is read only for local autofill matching
+* Users can edit or delete their data anytime
 
-- Unknown fields are skipped so the page is not disturbed
-- Matching is keyword-based and designed for real-world form variations, but highly custom widgets may still need manual input
-- All data remains in the browser via local extension storage
-- The popup includes a visible support contact: `sangameshlingshetty@gmail.com`
-- If the extension was just reloaded or updated, refresh any already-open job page once before using autofill
+---
+
+## 🔑 Permissions
+
+* `storage` → Store user profile locally
+* `activeTab` → Access current tab for autofill
+* `<all_urls>` → Enable autofill across websites
+
+Permissions are used strictly for autofill functionality.
+
+---
+
+## 🚫 What This Extension Does NOT Do
+
+* ❌ Does NOT collect or sell user data
+* ❌ Does NOT track user activity
+* ❌ Does NOT send data to external servers
+* ❌ Does NOT auto-submit job applications
+* ❌ Does NOT bypass authentication
+
+---
+
+## 📌 Notes
+
+* Works best with standard form fields
+* Some custom forms may need manual input
+* Unknown fields are skipped safely
+
+---
+
+## 🧪 Chrome Web Store Compliance
+
+* Single-purpose: Autofill job application forms
+* No remote code usage
+* Fully user-triggered functionality
+* Transparent data handling
+
+---
+
+## 📧 Support
+
+For feedback or support:
+
+📩 [sangameshlingshetty@gmail.com](mailto:sangameshlingshetty@gmail.com)
+
+---
+
+## 🚀 Summary
+
+Job Autofill Assistant Pro is a lightweight, privacy-focused productivity tool that helps users apply to jobs faster by eliminating repetitive form filling.
+
+Simple. Fast. Secure.
