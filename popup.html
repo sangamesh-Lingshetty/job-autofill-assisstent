@@ -4,183 +4,81 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Job Autofill Assistant Pro</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="popup.css" />
   </head>
   <body class="jaa-popup-body">
-    <main class="jaa-popup">
-      <section id="welcomeView" class="jaa-panel jaa-hero">
-        <div class="jaa-badge">Trusted Job Form Assistant</div>
-        <header class="jaa-popup__header">
-          <h1>Fill forms once. Use it everywhere in Chrome.</h1>
-          <p>Save your job application profile one time and autofill supported application pages in a single click.</p>
-        </header>
-        <div class="jaa-hero__highlights">
-          <div class="jaa-highlight">
-            <strong>Local only</strong>
-            <span>Your data stays in Chrome storage.</span>
-          </div>
-          <div class="jaa-highlight">
-            <strong>User controlled</strong>
-            <span>Autofill only runs when you click.</span>
-          </div>
-          <div class="jaa-highlight">
-            <strong>Works broadly</strong>
-            <span>Built for real job portals and ATS forms.</span>
-          </div>
-        </div>
-        <button id="startSetupButton" type="button" class="jaa-primary-button">Start Setup</button>
+    <main class="jaa-app-shell jaa-app-shell--popup">
+      <section id="heroCard" class="jaa-card jaa-card--hero">
+        <div class="jaa-eyebrow">Job Autofill Assistant Pro</div>
+        <h1 class="jaa-title">Autofill faster. Stay focused. Keep momentum.</h1>
+        <p class="jaa-subtitle">Smart page detection, one-click autofill, and a calm workflow designed for real job hunting.</p>
       </section>
 
-      <section id="dashboardView" class="jaa-panel" hidden>
-        <div class="jaa-dashboard__top">
-          <div>
-            <div class="jaa-badge jaa-badge--soft">Profile Ready</div>
-            <h2 class="jaa-section-title">Your autofill profile is ready</h2>
-            <p class="jaa-section-copy">Use the button below to autofill the current page, or edit your saved details anytime.</p>
-          </div>
-          <button id="editProfileButton" type="button" class="jaa-secondary-button">Edit</button>
+      <section id="statsBlock" class="jaa-card jaa-stats" hidden>
+        <div class="jaa-stats__headline">Keep going — you&apos;re making progress</div>
+        <div class="jaa-stats__grid">
+          <article class="jaa-stat">
+            <span class="jaa-stat__label">Applications</span>
+            <strong id="statsAppliedCount" class="jaa-stat__value">0</strong>
+            <span class="jaa-stat__caption">You&apos;ve applied to jobs with help from the extension</span>
+          </article>
+          <article class="jaa-stat">
+            <span class="jaa-stat__label">Time saved</span>
+            <strong id="statsTimeSaved" class="jaa-stat__value">0.0h</strong>
+            <span class="jaa-stat__caption">Estimated hours saved from repeated form filling</span>
+          </article>
         </div>
+      </section>
 
-        <div id="profileSnapshot" class="jaa-snapshot"></div>
-
-        <button id="autofillNowButton" type="button" class="jaa-primary-button">
-          <span class="jaa-button-text">Autofill Current Page</span>
+      <section class="jaa-card jaa-actions">
+        <button id="autofillNowButton" type="button" class="jaa-button jaa-button--primary">
+          <span class="jaa-button-text">⚡ Autofill Current Page</span>
           <span id="autofillSpinner" class="jaa-spinner" hidden aria-hidden="true"></span>
         </button>
-
-        <p id="status" class="jaa-status" aria-live="polite"></p>
+        <button id="generateAnswerButton" type="button" class="jaa-button jaa-button--secondary">✨ Generate Answer</button>
       </section>
 
-      <section id="editorView" class="jaa-panel" hidden>
-        <div class="jaa-dashboard__top">
-          <div>
-            <div class="jaa-badge jaa-badge--soft">Profile Editor</div>
-            <h2 class="jaa-section-title">Save your details once</h2>
-            <p class="jaa-section-copy">Keep this simple and accurate. You can update it anytime.</p>
+      <section class="jaa-card jaa-usage">
+        <div class="jaa-usage__label">Free plan</div>
+        <p id="usageLimitText" class="jaa-usage__value">Today: 0 / 10 autofills used</p>
+      </section>
+
+      <section class="jaa-card jaa-profile">
+        <button id="profileToggleButton" type="button" class="jaa-profile__toggle" aria-expanded="false" aria-controls="profilePanel">
+          <span>Profile</span>
+          <span id="profileToggleIcon" class="jaa-profile__chevron">▾</span>
+        </button>
+
+        <div id="profilePanel" class="jaa-profile__panel" hidden>
+          <div id="profileSummary" class="jaa-profile__summary"></div>
+          <div class="jaa-profile__actions">
+            <button id="editProfileButton" type="button" class="jaa-button jaa-button--ghost">Edit Profile</button>
           </div>
-          <button id="backToDashboardButton" type="button" class="jaa-secondary-button" hidden>Back</button>
+
+          <div class="jaa-custom-fields">
+            <div class="jaa-custom-fields__header">
+              <h2>Custom fields</h2>
+              <p>Teach the autofill engine your own field labels and values.</p>
+            </div>
+
+            <form id="customFieldForm" class="jaa-inline-form">
+              <input id="customFieldKey" name="customFieldKey" type="text" placeholder="field_key" required />
+              <input id="customFieldKeywords" name="customFieldKeywords" type="text" placeholder="keywords, comma separated" required />
+              <input id="customFieldValue" name="customFieldValue" type="text" placeholder="value" required />
+              <button type="submit" class="jaa-button jaa-button--primary jaa-button--compact">Add Custom Field</button>
+            </form>
+
+            <div id="customFieldsList" class="jaa-custom-fields__list"></div>
+          </div>
         </div>
-
-        <form id="profileForm" class="jaa-form">
-          <label class="jaa-field">
-            <span>Full Name</span>
-            <input type="text" id="fullName" name="fullName" autocomplete="name" />
-          </label>
-
-          <label class="jaa-field">
-            <span>Email</span>
-            <input type="email" id="email" name="email" autocomplete="email" />
-          </label>
-
-          <label class="jaa-field">
-            <span>Phone</span>
-            <input type="tel" id="phone" name="phone" autocomplete="tel" />
-          </label>
-
-          <label class="jaa-field">
-            <span>Password</span>
-            <input type="password" id="password" name="password" autocomplete="new-password" />
-          </label>
-
-          <label class="jaa-field">
-            <span>Current City</span>
-            <input type="text" id="city" name="city" autocomplete="address-level2" />
-          </label>
-
-          <label class="jaa-field">
-            <span>Current Company</span>
-            <input type="text" id="currentCompany" name="currentCompany" />
-          </label>
-
-          <label class="jaa-field">
-            <span>Current Role</span>
-            <input type="text" id="currentRole" name="currentRole" />
-          </label>
-
-          <label class="jaa-field">
-            <span>Date of Joining</span>
-            <input type="text" id="joiningDate" name="joiningDate" placeholder="16 June 2014" />
-          </label>
-
-          <label class="jaa-field">
-            <span>Date of Relieving</span>
-            <input type="text" id="relievingDate" name="relievingDate" placeholder="16 July 2018" />
-          </label>
-
-          <label class="jaa-field">
-            <span>Currently Working Here</span>
-            <select id="currentlyWorking" name="currentlyWorking">
-              <option value="no">No</option>
-              <option value="yes">Yes</option>
-            </select>
-          </label>
-
-          <label class="jaa-field">
-            <span>LinkedIn URL</span>
-            <input type="url" id="linkedin" name="linkedin" autocomplete="url" />
-          </label>
-
-          <label class="jaa-field">
-            <span>Portfolio URL</span>
-            <input type="url" id="portfolio" name="portfolio" autocomplete="url" />
-          </label>
-
-          <label class="jaa-field jaa-field--full">
-            <span>About Me</span>
-            <textarea id="about" name="about" rows="3"></textarea>
-          </label>
-
-          <label class="jaa-field jaa-field--full">
-            <span>Experience</span>
-            <textarea id="experience" name="experience" rows="3"></textarea>
-          </label>
-
-          <label class="jaa-field jaa-field--full">
-            <span>Why Do You Want This Job?</span>
-            <textarea id="motivation" name="motivation" rows="3"></textarea>
-          </label>
-
-          <label class="jaa-field">
-            <span>Expected Salary</span>
-            <input type="text" id="expectedSalary" name="expectedSalary" inputmode="numeric" />
-          </label>
-
-          <label class="jaa-field">
-            <span>Current Salary</span>
-            <input type="text" id="currentSalary" name="currentSalary" inputmode="numeric" />
-          </label>
-
-          <label class="jaa-field">
-            <span>Notice Period</span>
-            <input type="text" id="notice" name="notice" inputmode="numeric" />
-          </label>
-
-          <label class="jaa-field">
-            <span>Open to Relocate</span>
-            <select id="relocate" name="relocate">
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
-          </label>
-
-          <label class="jaa-field">
-            <span>Currently on Notice Period</span>
-            <select id="noticeStatus" name="noticeStatus">
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
-          </label>
-
-          <div class="jaa-form__actions">
-            <button type="submit" class="jaa-primary-button">Save Profile</button>
-          </div>
-        </form>
       </section>
 
-      <footer class="jaa-footer">
-        <span>Support</span>
-        <a href="mailto:sangameshlingshetty@gmail.com">sangameshlingshetty@gmail.com</a>
-      </footer>
+      <section class="jaa-card jaa-upgrade">
+        <a href="#" id="upgradeLink" class="jaa-upgrade__link">Upgrade to Pro →</a>
+        <p>Unlock unlimited autofill &amp; AI answers</p>
+      </section>
+
+      <p id="status" class="jaa-status" aria-live="polite"></p>
     </main>
 
     <script src="popup.js"></script>

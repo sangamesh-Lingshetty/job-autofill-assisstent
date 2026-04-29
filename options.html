@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Edit Profile | Job Autofill Assistant Pro</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body class="jaa-popup-body">
+    <main class="jaa-app-shell jaa-app-shell--options">
+      <section class="jaa-card jaa-card--hero">
+        <div class="jaa-eyebrow">Profile Editor</div>
+        <h1 class="jaa-title">Save your details once</h1>
+        <p class="jaa-subtitle">Keep your profile accurate so each autofill run feels instant and reliable.</p>
+      </section>
+
+      <section class="jaa-card">
+        <form id="profileForm" class="jaa-form">
+          <label class="jaa-field">
+            <span>Full Name</span>
+            <input type="text" id="fullName" name="fullName" autocomplete="name" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Email</span>
+            <input type="email" id="email" name="email" autocomplete="email" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Phone</span>
+            <input type="tel" id="phone" name="phone" autocomplete="tel" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Password</span>
+            <input type="password" id="password" name="password" autocomplete="new-password" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Current City</span>
+            <input type="text" id="city" name="city" autocomplete="address-level2" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Current Company</span>
+            <input type="text" id="currentCompany" name="currentCompany" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Current Role</span>
+            <input type="text" id="currentRole" name="currentRole" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Date of Joining</span>
+            <input type="text" id="joiningDate" name="joiningDate" placeholder="16 June 2014" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Date of Relieving</span>
+            <input type="text" id="relievingDate" name="relievingDate" placeholder="16 July 2018" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Currently Working Here</span>
+            <select id="currentlyWorking" name="currentlyWorking">
+              <option value="no">No</option>
+              <option value="yes">Yes</option>
+            </select>
+          </label>
+
+          <label class="jaa-field">
+            <span>LinkedIn URL</span>
+            <input type="url" id="linkedin" name="linkedin" autocomplete="url" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Portfolio URL</span>
+            <input type="url" id="portfolio" name="portfolio" autocomplete="url" />
+          </label>
+
+          <label class="jaa-field jaa-field--full">
+            <span>About Me</span>
+            <textarea id="about" name="about" rows="4"></textarea>
+          </label>
+
+          <label class="jaa-field jaa-field--full">
+            <span>Experience</span>
+            <textarea id="experience" name="experience" rows="4"></textarea>
+          </label>
+
+          <label class="jaa-field jaa-field--full">
+            <span>Why Do You Want This Job?</span>
+            <textarea id="motivation" name="motivation" rows="4"></textarea>
+          </label>
+
+          <label class="jaa-field">
+            <span>Expected Salary</span>
+            <input type="text" id="expectedSalary" name="expectedSalary" inputmode="numeric" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Current Salary</span>
+            <input type="text" id="currentSalary" name="currentSalary" inputmode="numeric" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Notice Period</span>
+            <input type="text" id="notice" name="notice" inputmode="numeric" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Open to Relocate</span>
+            <select id="relocate" name="relocate">
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+
+          <label class="jaa-field">
+            <span>Currently on Notice Period</span>
+            <select id="noticeStatus" name="noticeStatus">
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+
+          <div class="jaa-form__actions">
+            <button type="submit" class="jaa-button jaa-button--primary">Save Profile</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="jaa-card">
+        <div class="jaa-custom-fields__header">
+          <h2>AI Answer Backend</h2>
+          <p>Use your own backend endpoint here. Keep provider keys on the server, not in the extension.</p>
+        </div>
+
+        <form id="aiConfigForm" class="jaa-form">
+          <label class="jaa-field jaa-field--full">
+            <span>Backend Endpoint</span>
+            <input type="url" id="endpoint" name="endpoint" placeholder="https://your-backend.example.com/generate-answer" />
+          </label>
+
+          <label class="jaa-field jaa-field--full">
+            <span>Access Token (optional)</span>
+            <input type="password" id="authToken" name="authToken" placeholder="Backend-issued token" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Daily Limit</span>
+            <input type="number" id="dailyLimit" name="dailyLimit" min="1" step="1" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Min Gap (ms)</span>
+            <input type="number" id="minIntervalMs" name="minIntervalMs" min="0" step="100" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Request Timeout (ms)</span>
+            <input type="number" id="requestTimeoutMs" name="requestTimeoutMs" min="1000" step="1000" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Enable AI Answers</span>
+            <select id="enabled" name="enabled">
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+
+          <div class="jaa-form__actions">
+            <button type="submit" class="jaa-button jaa-button--primary">Save AI Settings</button>
+          </div>
+        </form>
+      </section>
+
+      <p id="status" class="jaa-status" aria-live="polite"></p>
+    </main>
+
+    <script src="options.js"></script>
+  </body>
+</html>

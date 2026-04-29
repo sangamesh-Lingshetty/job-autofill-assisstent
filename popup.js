@@ -1,16 +1,9 @@
 const STORAGE_KEY = "jobAutofillProfile";
-
-const form = document.getElementById("profileForm");
-const status = document.getElementById("status");
-const welcomeView = document.getElementById("welcomeView");
-const dashboardView = document.getElementById("dashboardView");
-const editorView = document.getElementById("editorView");
-const startSetupButton = document.getElementById("startSetupButton");
-const editProfileButton = document.getElementById("editProfileButton");
-const backToDashboardButton = document.getElementById("backToDashboardButton");
-const autofillNowButton = document.getElementById("autofillNowButton");
-const autofillSpinner = document.getElementById("autofillSpinner");
-const profileSnapshot = document.getElementById("profileSnapshot");
+const CUSTOM_FIELDS_STORAGE_KEY = "customFields";
+const STATS_KEY = "jaaStats";
+const USAGE_KEY = "jaaUsage";
+const OPEN_EDITOR_KEY = "jaaOpenEditor";
+const DAILY_AUTOFILL_LIMIT = 10;
 const DEFAULT_PROFILE = {
   fullName: "",
   email: "",
@@ -33,7 +26,11 @@ const DEFAULT_PROFILE = {
   relocate: "yes",
   noticeStatus: "no"
 };
-const SNAPSHOT_FIELDS = [
+const DEFAULT_STATS = {
+  applicationsCount: 0,
+  timeSavedMinutes: 0
+};
+const PROFILE_FIELDS = [
   ["Name", "fullName"],
   ["Email", "email"],
   ["Phone", "phone"],
@@ -44,70 +41,162 @@ const SNAPSHOT_FIELDS = [
   ["Notice Period", "notice"]
 ];
 
+const status = document.getElementById("status");
+const statsBlock = document.getElementById("statsBlock");
+const statsAppliedCount = document.getElementById("statsAppliedCount");
+const statsTimeSaved = document.getElementById("statsTimeSaved");
+const usageLimitText = document.getElementById("usageLimitText");
+const profileToggleButton = document.getElementById("profileToggleButton");
+const profileToggleIcon = document.getElementById("profileToggleIcon");
+const profilePanel = document.getElementById("profilePanel");
+const profileSummary = document.getElementById("profileSummary");
+const editProfileButton = document.getElementById("editProfileButton");
+const autofillNowButton = document.getElementById("autofillNowButton");
+const autofillSpinner = document.getElementById("autofillSpinner");
+const generateAnswerButton = document.getElementById("generateAnswerButton");
+const customFieldForm = document.getElementById("customFieldForm");
+const customFieldsList = document.getElementById("customFieldsList");
+
 document.addEventListener("DOMContentLoaded", initializePopup);
-form.addEventListener("submit", handleSave);
-startSetupButton.addEventListener("click", () => {
-  setView("editor");
-});
-editProfileButton.addEventListener("click", () => {
-  setView("editor");
-});
-backToDashboardButton.addEventListener("click", () => {
-  setView("dashboard");
-});
+profileToggleButton.addEventListener("click", toggleProfile);
+editProfileButton.addEventListener("click", openEditProfile);
 autofillNowButton.addEventListener("click", handlePopupAutofill);
+generateAnswerButton.addEventListener("click", handleGenerateAnswer);
+customFieldForm.addEventListener("submit", handleCustomFieldSubmit);
 
 async function initializePopup() {
-  const profile = await getStoredProfile();
-  hydrateForm(profile);
-  renderSnapshot(profile);
-  setView(hasSavedProfile(profile) ? "dashboard" : "welcome");
+  const state = await loadPopupState();
+  renderStats(state.stats);
+  renderUsageLimit(state.usage);
+  renderProfile(state.profile);
+  renderCustomFields(state.customFields);
 }
 
-async function handleSave(event) {
-  event.preventDefault();
+async function loadPopupState() {
+  const stored = await chrome.storage.local.get([
+    STORAGE_KEY,
+    CUSTOM_FIELDS_STORAGE_KEY,
+    STATS_KEY,
+    USAGE_KEY
+  ]);
 
-  const profile = {
-    fullName: form.fullName.value.trim(),
-    email: form.email.value.trim(),
-    phone: form.phone.value.trim(),
-    password: form.password.value,
-    city: form.city.value.trim(),
-    currentCompany: form.currentCompany.value.trim(),
-    currentRole: form.currentRole.value.trim(),
-    joiningDate: form.joiningDate.value.trim(),
-    relievingDate: form.relievingDate.value.trim(),
-    currentlyWorking: normalizeBooleanChoice(form.currentlyWorking.value, "no"),
-    linkedin: form.linkedin.value.trim(),
-    portfolio: form.portfolio.value.trim(),
-    about: form.about.value.trim(),
-    experience: form.experience.value.trim(),
-    motivation: form.motivation.value.trim(),
-    expectedSalary: normalizeNumber(form.expectedSalary.value),
-    currentSalary: normalizeNumber(form.currentSalary.value),
-    notice: normalizeNumber(form.notice.value),
-    relocate: normalizeBooleanChoice(form.relocate.value, "yes"),
-    noticeStatus: normalizeBooleanChoice(form.noticeStatus.value, "no")
+  return {
+    profile: {
+      ...DEFAULT_PROFILE,
+      ...(stored[STORAGE_KEY] || {})
+    },
+    customFields: sanitizeCustomFields(stored[CUSTOM_FIELDS_STORAGE_KEY] || {}),
+    stats: {
+      ...DEFAULT_STATS,
+      ...(stored[STATS_KEY] || {})
+    },
+    usage: normalizeUsage(stored[USAGE_KEY] || {})
   };
+}
 
-  await chrome.storage.local.set({ [STORAGE_KEY]: profile });
-  renderSnapshot(profile);
-  setView("dashboard");
-  showStatus("Profile saved successfully.");
+function renderStats(stats) {
+  const applicationsCount = Number(stats.applicationsCount || 0);
+  const timeSavedMinutes = Number(stats.timeSavedMinutes || 0);
+  const timeSavedHours = (timeSavedMinutes / 60).toFixed(1);
+
+  statsBlock.hidden = applicationsCount <= 0;
+  statsAppliedCount.textContent = applicationsCount.toLocaleString();
+  statsTimeSaved.textContent = `${timeSavedHours}h`;
+}
+
+function renderUsageLimit(usage) {
+  usageLimitText.textContent = `Today: ${usage.todayCount} / ${DAILY_AUTOFILL_LIMIT} autofills used`;
+}
+
+function renderProfile(profile) {
+  const hasProfile = hasSavedProfile(profile);
+  const items = PROFILE_FIELDS
+    .map(([label, key]) => {
+      const value = String(profile[key] || "").trim();
+      if (!value) {
+        return "";
+      }
+
+      return `
+        <div class="jaa-profile-item">
+          <span>${label}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </div>
+      `;
+    })
+    .filter(Boolean)
+    .join("");
+
+  profileSummary.innerHTML = hasProfile
+    ? items
+    : `
+      <div class="jaa-empty-state">
+        <strong>No profile saved yet</strong>
+        <span>Open the profile editor and save your details once.</span>
+      </div>
+    `;
+}
+
+function renderCustomFields(customFields) {
+  const entries = Object.entries(customFields);
+  if (!entries.length) {
+    customFieldsList.innerHTML = `
+      <div class="jaa-empty-state">
+        <strong>No custom fields yet</strong>
+        <span>Add one when a site uses uncommon labels.</span>
+      </div>
+    `;
+    return;
+  }
+
+  customFieldsList.innerHTML = entries
+    .map(([fieldKey, config]) => `
+      <article class="jaa-custom-field-item">
+        <div>
+          <strong>${escapeHtml(fieldKey)}</strong>
+          <p>${escapeHtml((config.keywords || []).join(", "))}</p>
+          <span>${escapeHtml(config.value || "")}</span>
+        </div>
+        <button type="button" class="jaa-button jaa-button--ghost jaa-button--compact" data-delete-custom-field="${escapeHtml(fieldKey)}">Delete</button>
+      </article>
+    `)
+    .join("");
+
+  for (const button of customFieldsList.querySelectorAll("[data-delete-custom-field]")) {
+    button.addEventListener("click", handleDeleteCustomField);
+  }
+}
+
+function toggleProfile() {
+  const isExpanded = profileToggleButton.getAttribute("aria-expanded") === "true";
+  profileToggleButton.setAttribute("aria-expanded", String(!isExpanded));
+  profileToggleIcon.textContent = isExpanded ? "▾" : "▴";
+  profilePanel.hidden = isExpanded;
+}
+
+async function openEditProfile() {
+  await chrome.storage.local.set({ [OPEN_EDITOR_KEY]: true });
+  await chrome.runtime.openOptionsPage();
 }
 
 async function handlePopupAutofill() {
-  const profile = await getStoredProfile();
-
-  if (!hasSavedProfile(profile)) {
-    setView("editor");
+  const state = await loadPopupState();
+  if (!hasSavedProfile(state.profile)) {
     showStatus("Save your profile before starting autofill.", true);
+    await openEditProfile();
+    return;
+  }
+
+  const usage = normalizeUsage(state.usage);
+  if (usage.todayCount >= DAILY_AUTOFILL_LIMIT) {
+    showStatus("You reached today’s free autofill limit.", true);
     return;
   }
 
   setAutofillLoading(true);
 
   try {
+    await syncCustomFieldsToActiveTab(state.customFields);
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab || !tab.id) {
       showStatus("Unable to find the active tab.", true);
@@ -120,8 +209,11 @@ async function handlePopupAutofill() {
       return;
     }
 
+    await recordAutofillSuccess(state.stats, usage);
     showStatus(response.message || "Form data filled successfully.");
-    setView("dashboard");
+    const freshState = await loadPopupState();
+    renderStats(freshState.stats);
+    renderUsageLimit(freshState.usage);
   } catch (error) {
     const errorMessage = String((error && error.message) || "");
     const message = errorMessage.includes("Receiving end does not exist")
@@ -133,54 +225,137 @@ async function handlePopupAutofill() {
   }
 }
 
-async function getStoredProfile() {
-  const stored = await chrome.storage.local.get(STORAGE_KEY);
-  return {
-    ...DEFAULT_PROFILE,
-    ...(stored[STORAGE_KEY] || {})
-  };
+function handleGenerateAnswer() {
+  triggerGenerateAnswerShortcut().catch((error) => {
+    showStatus(String(error && error.message ? error.message : "Unable to open AI answer generation."), true);
+  });
 }
 
-function hydrateForm(profile) {
-  for (const [key, value] of Object.entries(profile)) {
-    const field = form.elements.namedItem(key);
-    if (field) {
-      field.value = isNumericProfileKey(key) ? normalizeNumber(value) : value;
+async function triggerGenerateAnswerShortcut() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || !tab.id) {
+    throw new Error("Open a job application page first.");
+  }
+
+  const response = await chrome.tabs.sendMessage(tab.id, {
+    type: "JAA_TRIGGER_AI_FIELD"
+  });
+
+  if (!response || !response.ok) {
+    throw new Error("No AI-ready long-answer field was found on this page.");
+  }
+
+  showStatus("Generating an answer for the first detected long-answer field.");
+}
+
+async function handleCustomFieldSubmit(event) {
+  event.preventDefault();
+
+  const formData = new FormData(customFieldForm);
+  const fieldKey = normalizeCustomFieldKey(formData.get("customFieldKey"));
+  const keywords = String(formData.get("customFieldKeywords") || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const value = String(formData.get("customFieldValue") || "").trim();
+
+  if (!fieldKey || !keywords.length || !value) {
+    showStatus("Add a field key, at least one keyword, and a value.", true);
+    return;
+  }
+
+  const state = await loadPopupState();
+  const customFields = {
+    ...state.customFields,
+    [fieldKey]: {
+      keywords,
+      value
     }
+  };
+
+  await chrome.storage.local.set({ [CUSTOM_FIELDS_STORAGE_KEY]: customFields });
+  await syncCustomFieldsToActiveTab(customFields);
+  customFieldForm.reset();
+  renderCustomFields(customFields);
+  showStatus("Custom field saved.");
+}
+
+async function handleDeleteCustomField(event) {
+  const fieldKey = event.currentTarget.getAttribute("data-delete-custom-field");
+  if (!fieldKey) {
+    return;
+  }
+
+  const state = await loadPopupState();
+  const customFields = { ...state.customFields };
+  delete customFields[fieldKey];
+  await chrome.storage.local.set({ [CUSTOM_FIELDS_STORAGE_KEY]: customFields });
+  await syncCustomFieldsToActiveTab(customFields);
+  renderCustomFields(customFields);
+  showStatus("Custom field deleted.");
+}
+
+async function syncCustomFieldsToActiveTab(customFields) {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.id) {
+      return;
+    }
+
+    await chrome.tabs.sendMessage(tab.id, {
+      type: "JAA_SYNC_CUSTOM_FIELDS",
+      customFields
+    });
+  } catch (error) {
+    // Ignore cases where the active tab has no content script yet.
   }
 }
 
-function renderSnapshot(profile) {
-  const items = SNAPSHOT_FIELDS
-    .map(([label, key]) => {
-      const value = String(profile[key] || "").trim();
-      if (!value) {
-        return "";
-      }
+async function recordAutofillSuccess(stats, usage) {
+  const nextStats = {
+    applicationsCount: Number(stats.applicationsCount || 0) + 1,
+    timeSavedMinutes: Number(stats.timeSavedMinutes || 0) + 6
+  };
+  const nextUsage = {
+    date: getTodayKey(),
+    todayCount: Number(usage.todayCount || 0) + 1
+  };
 
-      return `
-        <div class="jaa-snapshot__item">
-          <span>${label}</span>
-          <strong>${escapeHtml(value)}</strong>
-        </div>
-      `;
-    })
-    .filter(Boolean)
-    .join("");
-
-  profileSnapshot.innerHTML = items || `
-    <div class="jaa-empty-state">
-      <strong>No profile saved yet</strong>
-      <span>Start setup to save your details.</span>
-    </div>
-  `;
+  await chrome.storage.local.set({
+    [STATS_KEY]: nextStats,
+    [USAGE_KEY]: nextUsage
+  });
 }
 
-function setView(view) {
-  welcomeView.hidden = view !== "welcome";
-  dashboardView.hidden = view !== "dashboard";
-  editorView.hidden = view !== "editor";
-  backToDashboardButton.hidden = view !== "editor" || !profileSnapshot.innerHTML || profileSnapshot.textContent.includes("No profile saved yet");
+function setAutofillLoading(isLoading) {
+  autofillNowButton.disabled = isLoading;
+  autofillSpinner.hidden = !isLoading;
+  autofillNowButton.querySelector(".jaa-button-text").textContent = isLoading
+    ? "Filling Current Page..."
+    : "⚡ Autofill Current Page";
+}
+
+function normalizeUsage(usage) {
+  const todayKey = getTodayKey();
+  if (usage.date !== todayKey) {
+    return {
+      date: todayKey,
+      todayCount: 0
+    };
+  }
+
+  return {
+    date: todayKey,
+    todayCount: Number(usage.todayCount || 0)
+  };
+}
+
+function getTodayKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function hasSavedProfile(profile) {
@@ -193,34 +368,33 @@ function hasSavedProfile(profile) {
   );
 }
 
-function setAutofillLoading(isLoading) {
-  autofillNowButton.disabled = isLoading;
-  autofillSpinner.hidden = !isLoading;
-  autofillNowButton.querySelector(".jaa-button-text").textContent = isLoading
-    ? "Filling Current Page..."
-    : "Autofill Current Page";
-}
-
-function normalizeNumber(value) {
-  const sanitized = String(value || "")
-    .replace(/,/g, "")
-    .replace(/[^\d.]/g, "")
-    .trim();
-
-  if (sanitized === "") {
-    return "";
+function sanitizeCustomFields(customFields) {
+  if (!customFields || typeof customFields !== "object") {
+    return {};
   }
 
-  const parsed = Number(sanitized);
-  return Number.isFinite(parsed) && parsed >= 0 ? String(parsed) : "";
+  return Object.entries(customFields).reduce((accumulator, [fieldKey, config]) => {
+    const normalizedKey = normalizeCustomFieldKey(fieldKey);
+    if (!normalizedKey || !config || typeof config !== "object") {
+      return accumulator;
+    }
+
+    accumulator[normalizedKey] = {
+      keywords: Array.isArray(config.keywords)
+        ? config.keywords.map((keyword) => String(keyword || "").trim()).filter(Boolean)
+        : [],
+      value: String(config.value || "").trim()
+    };
+    return accumulator;
+  }, {});
 }
 
-function normalizeBooleanChoice(value, fallback) {
-  return value === "no" ? "no" : value === "yes" ? "yes" : fallback;
-}
-
-function isNumericProfileKey(key) {
-  return ["expectedSalary", "currentSalary", "notice"].includes(key);
+function normalizeCustomFieldKey(key) {
+  return String(key || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 function showStatus(message, isError = false) {
@@ -231,7 +405,7 @@ function showStatus(message, isError = false) {
   showStatus.timeoutId = window.setTimeout(() => {
     status.textContent = "";
     status.classList.remove("is-error", "is-success");
-  }, 2200);
+  }, 2600);
 }
 
 function escapeHtml(value) {
