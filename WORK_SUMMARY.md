@@ -7,11 +7,17 @@ Job Autofill Assistant Pro is a Manifest V3 Chrome Extension designed to help us
 ## Implemented Functionality
 
 - Built a popup-based extension flow using `popup.html`, `popup.js`, and `popup.css`
+- Reworked the popup into a single-file inline HTML + CSS design while keeping the autofill engine separate
 - Simplified the popup into a compact SaaS-style control panel focused on:
   - quick autofill
   - progress stats
   - profile access
+- Added a hidden free-plan daily-usage counter in popup state so usage can be limited without exposing the counter in the main UI
+- Added a popup Pro-upgrade gate that appears after the free daily autofill limit is reached
+- Added a popup upgrade CTA that opens the external landing page in a new browser tab
+- Moved usage counting to the shared successful-autofill path so stats update whether the user starts autofill from the popup or from the floating page widget
 - Added popup-triggered autofill for the active tab using the content-script engine
+- Added content-widget fallback that opens the profile editor automatically when autofill is triggered without saved profile details
 - Added a direct popup-to-options-page edit flow so full profile management happens in the dedicated editor page
 - Removed the old popup free-plan block and heavy in-popup profile/custom-field editing UI
 - Built a dedicated options-page profile editor opened from the popup in a new tab
@@ -132,6 +138,14 @@ Job Autofill Assistant Pro is a Manifest V3 Chrome Extension designed to help us
 ## UI / Product Changes Made Recently
 
 - Reworked the popup into a lighter SaaS-style layout
+- Rebuilt the popup UI as a dark SaaS panel with:
+  - branded header
+  - strong headline/subtext block
+  - two KPI stat cards
+  - compact profile card
+  - gradient autofill CTA
+  - bottom trust line
+- Added an inline Pro feature card that appears only when the free daily limit is reached
 - Replaced the old large popup hero copy with a compact branded header
 - Added quick profile-edit access from the popup
 - Kept the popup focused on:
@@ -146,9 +160,14 @@ Job Autofill Assistant Pro is a Manifest V3 Chrome Extension designed to help us
 ## Reliability Improvements Made
 
 - Removed the earlier usage-limit / paywall logic from the active popup flow
+- Reintroduced a safer popup-only daily usage cap with per-day reset logic and Pro upgrade routing
+- Extended daily-limit enforcement and stats tracking to the floating page widget so both extension entry points behave consistently
 - Fixed popup errors caused by comma-formatted numbers like `40,000`
 - Added loading and success feedback around popup-initiated autofill
 - Added graceful handling for stale content scripts after extension reloads or updates
+- Added popup-side content-script recovery using `chrome.scripting` so the active tab can be reinjected automatically after an extension reload instead of requiring a manual page refresh in many cases
+- Fixed the popup daily-limit reset to use the browser's local calendar day rather than UTC boundaries
+- Improved the floating page widget styling and strengthened the close-button hide behavior so the dismiss action works more predictably
 - Reduced incorrect matches caused by overly broad container text
 - Added stricter intent-based matching to avoid cross-filling unrelated fields
 - Prioritized company-name mapping before generic person-name mapping

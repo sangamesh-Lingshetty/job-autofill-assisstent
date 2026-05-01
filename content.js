@@ -5,7 +5,19 @@ const CLOSE_ID = "jaa-fill-close";
 const FEEDBACK_ID = "jaa-fill-feedback";
 const WIDGET_PREFS_KEY = "jaaFloatingWidgetPrefs";
 const CUSTOM_FIELDS_STORAGE_KEY = "customFields";
+const STATS_KEY = "jaaStats";
+const DAILY_USAGE_KEY = "jaaDailyUsage";
 const DEFAULT_COUNTRY_CODE = "+91";
+const FREE_DAILY_LIMIT = 10;
+const ESTIMATED_MINUTES_PER_AUTOFILL = 6;
+const DEFAULT_STATS = {
+  applicationsCount: 0,
+  timeSavedMinutes: 0
+};
+const DEFAULT_DAILY_USAGE = {
+  date: "",
+  count: 0
+};
 const IMPORTANT_KEYWORDS = [
   "name", "email", "phone", "resume", "cv",
   "salary", "experience", "linkedin", "portfolio",
@@ -356,6 +368,7 @@ async function initializeFloatingButton() {
   button.type = "button";
   button.textContent = "\u26A1 Autofill Job Application";
   button.setAttribute("aria-label", "Autofill job application");
+  button.className = "jaa-widget-button";
   button.addEventListener("click", async (event) => {
     if (widget.dataset.dragging === "true") {
       event.preventDefault();
@@ -369,10 +382,13 @@ async function initializeFloatingButton() {
   closeButton.type = "button";
   closeButton.textContent = "\u00D7";
   closeButton.setAttribute("aria-label", "Hide autofill widget on this page");
+  closeButton.className = "jaa-widget-close";
   closeButton.addEventListener("click", async (event) => {
     event.preventDefault();
     event.stopPropagation();
     widgetRuntimeState.dismissedForPage = true;
+    widget.classList.remove("is-visible");
+    widget.classList.add("is-hidden");
     widget.hidden = true;
     await saveWidgetPrefs({
       ...widgetPrefs,
@@ -411,11 +427,23 @@ async function handleAutofillClick() {
   widgetRuntimeState.customFieldsCache = await loadCustomFieldsFromExtensionStorage();
   widgetRuntimeState.activeProfile = profile || null;
 
-  if (!profile) {
-    showFeedback("Save your profile in the extension popup first.", true);
+  if (!hasSavedProfile(profile)) {
+    showFeedback("Add your profile details first. Opening the profile editor...", true);
+    await requestOpenProfileEditor();
     return {
       ok: false,
-      message: "Save your profile in the extension popup first."
+      message: "Add your profile details first. The profile editor has been opened."
+    };
+  }
+
+  const usageState = await getUsageState();
+  if (hasReachedDailyLimit(usageState.dailyUsage)) {
+    const savedHours = ((usageState.dailyUsage.count * ESTIMATED_MINUTES_PER_AUTOFILL) / 60).toFixed(1);
+    showFeedback(`You finished today's ${FREE_DAILY_LIMIT} free autofills and saved ${savedHours}h. Upgrade to Pro for unlimited access.`, true);
+    await requestOpenUpgradePage();
+    return {
+      ok: false,
+      message: `Today's free limit is complete. You saved ${savedHours}h. Upgrade to Pro for unlimited autofill.`
     };
   }
 
@@ -441,6 +469,7 @@ async function handleAutofillClick() {
   }
 
   schedulePlatformCompatibilityPass();
+  await recordAutofillUsage(usageState);
 
   showFeedback(`Filled ${totalFilledCount} field${totalFilledCount === 1 ? "" : "s"}.`);
   return {
@@ -468,6 +497,123 @@ function isExtensionContextAvailable() {
   } catch (error) {
     return false;
   }
+}
+
+function hasSavedProfile(profile) {
+  if (!profile || typeof profile !== "object") {
+    return false;
+  }
+
+  return Boolean(
+    String(profile.fullName || "").trim()
+    || String(profile.email || "").trim()
+    || String(profile.phone || "").trim()
+    || String(profile.currentCompany || "").trim()
+    || String(profile.currentRole || "").trim()
+  );
+}
+
+async function requestOpenProfileEditor() {
+  if (!isExtensionContextAvailable()) {
+    return;
+  }
+
+  try {
+    await chrome.runtime.sendMessage({ type: "JAA_OPEN_OPTIONS_PAGE" });
+  } catch (error) {
+    // Ignore pages where the extension context was refreshed mid-click.
+  }
+}
+
+async function requestOpenUpgradePage() {
+  if (!isExtensionContextAvailable()) {
+    return;
+  }
+
+  try {
+    await chrome.runtime.sendMessage({ type: "JAA_OPEN_UPGRADE_PAGE" });
+  } catch (error) {
+    // Ignore pages where the extension context was refreshed mid-click.
+  }
+}
+
+async function getUsageState() {
+  if (!isExtensionContextAvailable()) {
+    return {
+      stats: { ...DEFAULT_STATS },
+      dailyUsage: getNormalizedDailyUsage(null)
+    };
+  }
+
+  try {
+    const stored = await chrome.storage.local.get([STATS_KEY, DAILY_USAGE_KEY]);
+    return {
+      stats: {
+        ...DEFAULT_STATS,
+        ...(stored[STATS_KEY] || {})
+      },
+      dailyUsage: getNormalizedDailyUsage(stored[DAILY_USAGE_KEY])
+    };
+  } catch (error) {
+    return {
+      stats: { ...DEFAULT_STATS },
+      dailyUsage: getNormalizedDailyUsage(null)
+    };
+  }
+}
+
+async function recordAutofillUsage(usageState) {
+  if (!isExtensionContextAvailable()) {
+    return;
+  }
+
+  const nextStats = {
+    applicationsCount: Number(usageState.stats.applicationsCount || 0) + 1,
+    timeSavedMinutes: Number(usageState.stats.timeSavedMinutes || 0) + ESTIMATED_MINUTES_PER_AUTOFILL
+  };
+  const nextDailyUsage = {
+    date: usageState.dailyUsage.date,
+    count: Number(usageState.dailyUsage.count || 0) + 1
+  };
+
+  try {
+    await chrome.storage.local.set({
+      [STATS_KEY]: nextStats,
+      [DAILY_USAGE_KEY]: nextDailyUsage
+    });
+  } catch (error) {
+    // Ignore storage failures and keep autofill successful.
+  }
+}
+
+function hasReachedDailyLimit(dailyUsage) {
+  return Number(dailyUsage && dailyUsage.count) >= FREE_DAILY_LIMIT;
+}
+
+function getNormalizedDailyUsage(dailyUsage) {
+  const today = getTodayStamp();
+  const storedDate = String(dailyUsage && dailyUsage.date ? dailyUsage.date : "");
+  const storedCount = Number(dailyUsage && dailyUsage.count ? dailyUsage.count : 0);
+
+  if (storedDate !== today) {
+    return {
+      ...DEFAULT_DAILY_USAGE,
+      date: today
+    };
+  }
+
+  return {
+    date: today,
+    count: Number.isFinite(storedCount) && storedCount >= 0 ? storedCount : 0
+  };
+}
+
+function getTodayStamp() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function getExtensionRefreshMessage() {

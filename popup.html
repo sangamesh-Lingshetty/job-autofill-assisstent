@@ -3,62 +3,445 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Job Autofill Assistant Pro</title>
-    <link rel="stylesheet" href="popup.css" />
+    <title>JobFill Pro</title>
+    <style>
+      :root {
+        --bg: #0f1117;
+        --panel: #1e2330;
+        --panel-soft: #171c27;
+        --border: rgba(148, 163, 184, 0.12);
+        --text: #f1f5f9;
+        --muted: #64748b;
+        --muted-strong: #94a3b8;
+        --accent: #818cf8;
+        --accent-start: #6366f1;
+        --accent-end: #8b5cf6;
+        --success: #22c55e;
+        --shadow: 0 24px 60px rgba(2, 6, 23, 0.42);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        width: 380px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at top right, rgba(139, 92, 246, 0.22), transparent 34%),
+          radial-gradient(circle at bottom left, rgba(99, 102, 241, 0.18), transparent 38%),
+          var(--bg);
+        color: var(--text);
+        font: 14px/1.5 "Segoe UI", Tahoma, sans-serif;
+      }
+
+      .popup {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 18px;
+      }
+
+      .topbar,
+      .profile-card,
+      .stats-card,
+      .cta-wrap {
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(30, 35, 48, 0.98), rgba(22, 27, 39, 0.96));
+        box-shadow: var(--shadow);
+      }
+
+      .topbar,
+      .profile-card,
+      .cta-wrap {
+        border-radius: 20px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+
+      .brand__icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
+        color: #ffffff;
+        font-size: 20px;
+        font-weight: 800;
+        box-shadow: 0 12px 26px rgba(99, 102, 241, 0.35);
+      }
+
+      .brand__meta {
+        min-width: 0;
+      }
+
+      .brand__name {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .brand__tag {
+        margin: 2px 0 0;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        padding: 7px 11px;
+        background: rgba(34, 197, 94, 0.12);
+        border: 1px solid rgba(34, 197, 94, 0.16);
+        color: #dcfce7;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .status-dot,
+      .trust-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--success);
+        box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.14);
+        flex: 0 0 auto;
+      }
+
+      .hero {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .hero__title {
+        margin: 0;
+        color: var(--text);
+        font-size: 18px;
+        line-height: 1.3;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .hero__subtitle {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .stats-card {
+        border-radius: 18px;
+        padding: 16px;
+      }
+
+      .stats-card__value {
+        margin: 0 0 8px;
+        color: var(--accent);
+        font-size: 22px;
+        line-height: 1;
+        font-weight: 700;
+      }
+
+      .stats-card__label {
+        margin: 0;
+        color: var(--muted);
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+      }
+
+      .profile-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+      }
+
+      .avatar {
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(139, 92, 246, 0.3));
+        border: 1px solid rgba(129, 140, 248, 0.24);
+        color: var(--text);
+        font-size: 15px;
+        font-weight: 800;
+        text-transform: uppercase;
+        flex: 0 0 auto;
+      }
+
+      .profile-meta {
+        min-width: 0;
+        flex: 1;
+      }
+
+      .profile-meta__name {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .profile-meta__email {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .profile-edit {
+        border: 1px solid rgba(129, 140, 248, 0.2);
+        border-radius: 12px;
+        padding: 9px 14px;
+        background: rgba(99, 102, 241, 0.08);
+        color: var(--text);
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+      }
+
+      .profile-edit:hover {
+        transform: translateY(-1px);
+        background: rgba(99, 102, 241, 0.14);
+        border-color: rgba(129, 140, 248, 0.34);
+      }
+
+      .cta-wrap {
+        padding: 0;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+      }
+
+      .cta-button {
+        width: 100%;
+        min-height: 54px;
+        border: 0;
+        border-radius: 18px;
+        padding: 14px 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
+        color: #ffffff;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 16px 34px rgba(99, 102, 241, 0.4);
+        transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+      }
+
+      .cta-button:hover {
+        transform: scale(1.015);
+        filter: brightness(1.08);
+        box-shadow: 0 18px 38px rgba(99, 102, 241, 0.5);
+      }
+
+      .cta-button:disabled {
+        opacity: 0.82;
+        cursor: wait;
+      }
+
+      .spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.35);
+        border-top-color: #ffffff;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      .status {
+        min-height: 18px;
+        margin: -2px 0 0;
+        color: #86efac;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .status.is-error {
+        color: #fca5a5;
+      }
+
+      .status.is-success {
+        color: #86efac;
+      }
+
+      .trust-line {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        color: var(--muted-strong);
+        font-size: 12px;
+        font-weight: 600;
+        text-align: center;
+      }
+
+      .upsell-card {
+        border: 1px solid rgba(139, 92, 246, 0.24);
+        border-radius: 20px;
+        padding: 16px;
+        background:
+          radial-gradient(circle at top right, rgba(139, 92, 246, 0.2), transparent 40%),
+          linear-gradient(180deg, rgba(30, 35, 48, 0.98), rgba(22, 27, 39, 0.98));
+        box-shadow: var(--shadow);
+      }
+
+      .upsell-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+        border-radius: 999px;
+        padding: 6px 10px;
+        background: rgba(99, 102, 241, 0.14);
+        color: #c7d2fe;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.7px;
+        text-transform: uppercase;
+      }
+
+      .upsell-title {
+        margin: 0;
+        color: var(--text);
+        font-size: 15px;
+        line-height: 1.4;
+        font-weight: 700;
+      }
+
+      .upsell-copy {
+        margin: 8px 0 0;
+        color: var(--muted-strong);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .upsell-button {
+        width: 100%;
+        margin-top: 14px;
+        min-height: 46px;
+        border: 1px solid rgba(129, 140, 248, 0.3);
+        border-radius: 16px;
+        padding: 12px 16px;
+        background: rgba(99, 102, 241, 0.12);
+        color: #ffffff;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+      }
+
+      .upsell-button:hover {
+        transform: translateY(-1px);
+        background: rgba(99, 102, 241, 0.18);
+        border-color: rgba(129, 140, 248, 0.42);
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
   </head>
-  <body class="jaa-popup-body">
-    <main class="jaa-app-shell jaa-app-shell--popup">
-      <section id="heroCard" class="jaa-card jaa-card--hero">
-        <div class="jaa-hero-topline">Trusted by 12,000+ job seekers. Time-saved stats are product demo values for now.</div>
-        <div class="jaa-hero-bar">
-          <div class="jaa-brand">
-            <div class="jaa-brand__icon" aria-hidden="true">J</div>
-            <div class="jaa-brand__meta">
-              <strong>Less form filling. More interviews.</strong>
-              <span>Apply to 5x more jobs without wasting hours on forms.</span>
-            </div>
+  <body>
+    <main class="popup">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand__icon" aria-hidden="true">J</div>
+          <div class="brand__meta">
+            <p class="brand__name">JobFill Pro</p>
+            <p class="brand__tag">Fast, focused job application autofill</p>
           </div>
-          <button id="heroEditButton" type="button" class="jaa-icon-button" aria-label="Edit profile">Edit</button>
         </div>
+        <div class="status-pill">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>Active</span>
+        </div>
+      </header>
+
+      <section class="hero" aria-label="Product intro">
+        <h1 class="hero__title">Apply to 5&times; more jobs &mdash; without wasting hours retyping the same details.</h1>
+        <p class="hero__subtitle">AI autofill that works across every job board.</p>
       </section>
 
-      <section id="statsBlock" class="jaa-card jaa-stats" hidden>
-        <div class="jaa-stats__headline">Progress</div>
-        <div class="jaa-stats__grid">
-          <article class="jaa-stat">
-            <span class="jaa-stat__label">Applications</span>
-            <strong id="statsAppliedCount" class="jaa-stat__value">0</strong>
-            <span class="jaa-stat__caption">Forms filled with this extension</span>
-          </article>
-          <article class="jaa-stat">
-            <span class="jaa-stat__label">Time saved</span>
-            <strong id="statsTimeSaved" class="jaa-stat__value">0.0h</strong>
-            <span class="jaa-stat__caption">Estimated autofill time saved</span>
-          </article>
-        </div>
+      <section id="statsBlock" class="stats" aria-label="Usage stats">
+        <article class="stats-card">
+          <p id="statsAppliedCount" class="stats-card__value">0</p>
+          <p class="stats-card__label">Applications</p>
+        </article>
+        <article class="stats-card">
+          <p id="statsTimeSaved" class="stats-card__value">0.0h</p>
+          <p class="stats-card__label">Time saved</p>
+        </article>
       </section>
 
-      <section class="jaa-card jaa-actions">
-        <button id="autofillNowButton" type="button" class="jaa-button jaa-button--primary">
+      <section class="profile-card" aria-label="Saved profile">
+        <div id="profileAvatar" class="avatar" aria-hidden="true">SL</div>
+        <div class="profile-meta">
+          <p id="profileName" class="profile-meta__name">Sangamesh L.</p>
+          <p id="profileEmail" class="profile-meta__email">Add your saved profile email</p>
+        </div>
+        <button id="editProfileButton" type="button" class="profile-edit">Edit</button>
+      </section>
+
+      <section class="cta-wrap">
+        <button id="autofillNowButton" type="button" class="cta-button">
           <span class="jaa-button-text">Autofill Current Page</span>
-          <span id="autofillSpinner" class="jaa-spinner" hidden aria-hidden="true"></span>
+          <span id="autofillSpinner" class="spinner" hidden aria-hidden="true"></span>
         </button>
       </section>
 
-      <section class="jaa-card jaa-profile">
-        <div class="jaa-profile__header">
-          <div>
-            <div class="jaa-profile__eyebrow">Profile</div>
-            <h2 class="jaa-profile__title">Single profile, ready to fill</h2>
-          </div>
-          <button id="editProfileButton" type="button" class="jaa-button jaa-button--ghost jaa-button--compact">Edit</button>
-        </div>
-        <div id="profilePanel" class="jaa-profile__panel">
-          <div id="profileSummary" class="jaa-profile__summary"></div>
-        </div>
+      <section id="upgradeCard" class="upsell-card" hidden>
+        <div class="upsell-badge">Pro Feature</div>
+        <p id="upgradeTitle" class="upsell-title">Daily autofill limit reached.</p>
+        <p id="upgradeMessage" class="upsell-copy">Upgrade to Pro for unlimited job applications and longer daily usage.</p>
+        <button id="upgradeButton" type="button" class="upsell-button">Upgrade to Pro</button>
       </section>
 
-      <p id="status" class="jaa-status" aria-live="polite"></p>
+      <p id="status" class="status" aria-live="polite"></p>
+
+      <div class="trust-line">
+        <span class="trust-dot" aria-hidden="true"></span>
+        <span>Trusted by 12,000+ job seekers</span>
+      </div>
     </main>
 
     <script src="popup.js"></script>
