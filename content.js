@@ -437,7 +437,7 @@ async function handleAutofillClick() {
   }
 
   const usageState = await getUsageState();
-  if (hasReachedDailyLimit(usageState.dailyUsage)) {
+  if (hasReachedDailyLimit(usageState.dailyUsage, usageState.isPro)) {
     const savedHours = ((usageState.dailyUsage.count * ESTIMATED_MINUTES_PER_AUTOFILL) / 60).toFixed(1);
     showFeedback(`You finished today's ${FREE_DAILY_LIMIT} free autofills and saved ${savedHours}h. Upgrade to Pro for unlimited access.`, true);
     await requestOpenUpgradePage();
@@ -541,23 +541,38 @@ async function getUsageState() {
   if (!isExtensionContextAvailable()) {
     return {
       stats: { ...DEFAULT_STATS },
-      dailyUsage: getNormalizedDailyUsage(null)
+      dailyUsage: getNormalizedDailyUsage(null),
+      isPro: false
     };
   }
 
   try {
-    const stored = await chrome.storage.local.get([STATS_KEY, DAILY_USAGE_KEY]);
+    let proState = { isPro: false };
+
+    try {
+      const result = await chrome.runtime.sendMessage({
+        type: "JAA_ENSURE_PRO_STATUS",
+        force: false
+      });
+      proState = { isPro: Boolean(result && result.isPro) };
+    } catch (error) {
+      // Fall back to locally cached values if the background check fails.
+    }
+
+    const stored = await chrome.storage.local.get([STATS_KEY, DAILY_USAGE_KEY, "isPro"]);
     return {
       stats: {
         ...DEFAULT_STATS,
         ...(stored[STATS_KEY] || {})
       },
-      dailyUsage: getNormalizedDailyUsage(stored[DAILY_USAGE_KEY])
+      dailyUsage: getNormalizedDailyUsage(stored[DAILY_USAGE_KEY]),
+      isPro: proState.isPro || Boolean(stored.isPro)
     };
   } catch (error) {
     return {
       stats: { ...DEFAULT_STATS },
-      dailyUsage: getNormalizedDailyUsage(null)
+      dailyUsage: getNormalizedDailyUsage(null),
+      isPro: false
     };
   }
 }
@@ -586,7 +601,11 @@ async function recordAutofillUsage(usageState) {
   }
 }
 
-function hasReachedDailyLimit(dailyUsage) {
+function hasReachedDailyLimit(dailyUsage, isPro = false) {
+  if (isPro) {
+    return false;
+  }
+
   return Number(dailyUsage && dailyUsage.count) >= FREE_DAILY_LIMIT;
 }
 

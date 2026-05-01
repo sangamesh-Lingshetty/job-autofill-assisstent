@@ -6,6 +6,9 @@ const OPEN_EDITOR_KEY = "jaaOpenEditor";
 const PRO_UPGRADE_URL = "https://www.deeplock.tech/auto-fill-job";
 const FREE_DAILY_LIMIT = 10;
 const ESTIMATED_MINUTES_PER_AUTOFILL = 6;
+const PRO_STORAGE_KEY = "isPro";
+const LICENSE_KEY_STORAGE = "licenseKey";
+const LAST_VALIDATED_AT_STORAGE = "lastValidatedAt";
 const DEFAULT_PROFILE = {
   fullName: "",
   email: "",
@@ -57,24 +60,34 @@ const upgradeCard = document.getElementById("upgradeCard");
 const upgradeTitle = document.getElementById("upgradeTitle");
 const upgradeMessage = document.getElementById("upgradeMessage");
 const upgradeButton = document.getElementById("upgradeButton");
+const licenseKeyInput = document.getElementById("licenseKeyInput");
+const activateLicenseButton = document.getElementById("activateLicenseButton");
+const licenseStatus = document.getElementById("licenseStatus");
+const licenseCopy = document.getElementById("licenseCopy");
 
 document.addEventListener("DOMContentLoaded", initializePopup);
 editProfileButton.addEventListener("click", openEditProfile);
 autofillNowButton.addEventListener("click", handlePopupAutofill);
 upgradeButton.addEventListener("click", openUpgradePage);
+activateLicenseButton.addEventListener("click", handleLicenseActivation);
 
 async function initializePopup() {
+  await ensureProStatusOnOpen();
   const state = await loadPopupState();
   renderStats(state.stats);
   renderProfile(state.profile);
-  renderUpgradeState(state.dailyUsage);
+  renderUpgradeState(state.dailyUsage, state.isPro);
+  renderLicenseState(state);
 }
 
 async function loadPopupState() {
   const stored = await chrome.storage.local.get([
     STORAGE_KEY,
     STATS_KEY,
-    DAILY_USAGE_KEY
+    DAILY_USAGE_KEY,
+    PRO_STORAGE_KEY,
+    LICENSE_KEY_STORAGE,
+    LAST_VALIDATED_AT_STORAGE
   ]);
 
   return {
@@ -86,7 +99,10 @@ async function loadPopupState() {
       ...DEFAULT_STATS,
       ...(stored[STATS_KEY] || {})
     },
-    dailyUsage: getNormalizedDailyUsage(stored[DAILY_USAGE_KEY])
+    dailyUsage: getNormalizedDailyUsage(stored[DAILY_USAGE_KEY]),
+    isPro: Boolean(stored[PRO_STORAGE_KEY]),
+    licenseKey: String(stored[LICENSE_KEY_STORAGE] || "").trim(),
+    lastValidatedAt: Number(stored[LAST_VALIDATED_AT_STORAGE] || 0)
   };
 }
 
@@ -120,6 +136,7 @@ async function openEditProfile() {
 }
 
 async function handlePopupAutofill() {
+  await ensureProStatusOnOpen();
   const state = await loadPopupState();
   if (!hasSavedProfile(state.profile)) {
     showStatus("Save your profile before starting autofill.", true);
@@ -127,8 +144,8 @@ async function handlePopupAutofill() {
     return;
   }
 
-  if (hasReachedDailyLimit(state.dailyUsage)) {
-    renderUpgradeState(state.dailyUsage);
+  if (hasReachedDailyLimit(state.dailyUsage, state.isPro)) {
+    renderUpgradeState(state.dailyUsage, state.isPro);
     showStatus("Today's free autofill limit has been reached.", true);
     return;
   }
@@ -156,9 +173,11 @@ async function handlePopupAutofill() {
     }
 
     showStatus(response.message || "Form data filled successfully.");
+    await ensureProStatusOnOpen();
     const freshState = await loadPopupState();
     renderStats(freshState.stats);
-    renderUpgradeState(freshState.dailyUsage);
+    renderUpgradeState(freshState.dailyUsage, freshState.isPro);
+    renderLicenseState(freshState);
   } catch (error) {
     const errorMessage = String((error && error.message) || "");
     const message = errorMessage.includes("Cannot access")
@@ -170,7 +189,8 @@ async function handlePopupAutofill() {
   } finally {
     setAutofillLoading(false);
     const latestState = await loadPopupState();
-    renderUpgradeState(latestState.dailyUsage);
+    renderUpgradeState(latestState.dailyUsage, latestState.isPro);
+    renderLicenseState(latestState);
   }
 }
 
@@ -208,10 +228,10 @@ function hasSavedProfile(profile) {
   );
 }
 
-function renderUpgradeState(dailyUsage) {
+function renderUpgradeState(dailyUsage, isPro) {
   const normalizedDailyUsage = getNormalizedDailyUsage(dailyUsage);
   const dailyCount = normalizedDailyUsage.count;
-  const hasLimit = hasReachedDailyLimit(normalizedDailyUsage);
+  const hasLimit = hasReachedDailyLimit(normalizedDailyUsage, isPro);
   const savedHours = ((dailyCount * ESTIMATED_MINUTES_PER_AUTOFILL) / 60).toFixed(1);
 
   upgradeCard.hidden = !hasLimit;
@@ -229,7 +249,11 @@ function renderUpgradeState(dailyUsage) {
   upgradeMessage.textContent = `You finished ${dailyCount} job applications today and saved about ${savedHours}h. Unlock Pro for unlimited autofill and keep the momentum going.`;
 }
 
-function hasReachedDailyLimit(dailyUsage) {
+function hasReachedDailyLimit(dailyUsage, isPro = false) {
+  if (isPro) {
+    return false;
+  }
+
   return Number(dailyUsage && dailyUsage.count) >= FREE_DAILY_LIMIT;
 }
 
@@ -261,6 +285,112 @@ function getTodayStamp() {
 
 async function openUpgradePage() {
   await chrome.tabs.create({ url: PRO_UPGRADE_URL });
+}
+
+async function handleLicenseActivation() {
+  const licenseKey = String((licenseKeyInput && licenseKeyInput.value) || "").trim();
+  if (!licenseKey) {
+    setLicenseStatus("Enter your license key first.", true);
+    return;
+  }
+
+  activateLicenseButton.disabled = true;
+  setLicenseStatus("Validating your Pro license...", false);
+
+  try {
+    const result = await chrome.runtime.sendMessage({
+      type: "JAA_VERIFY_LICENSE",
+      licenseKey
+    });
+
+    if (!result || !result.valid) {
+      setLicenseStatus(result && result.message ? result.message : "This license key is invalid.", true);
+      const nextState = await loadPopupState();
+      renderUpgradeState(nextState.dailyUsage, nextState.isPro);
+      renderLicenseState(nextState);
+      return;
+    }
+
+    if (licenseKeyInput) {
+      licenseKeyInput.value = "";
+    }
+
+    setLicenseStatus(result.cached
+      ? "License already validated recently. Pro is active."
+      : "License validated successfully. Pro is now active.");
+    const nextState = await loadPopupState();
+    renderUpgradeState(nextState.dailyUsage, nextState.isPro);
+    renderLicenseState(nextState);
+  } catch (error) {
+    setLicenseStatus(String((error && error.message) || "License validation failed."), true);
+  } finally {
+    activateLicenseButton.disabled = false;
+  }
+}
+
+async function ensureProStatusOnOpen() {
+  try {
+    await chrome.runtime.sendMessage({
+      type: "JAA_ENSURE_PRO_STATUS",
+      force: false
+    });
+  } catch (error) {
+    // Leave the last known local Pro state in place if the backend is unavailable.
+  }
+}
+
+function renderLicenseState(state) {
+  const isPro = Boolean(state && state.isPro);
+  const licenseKey = String((state && state.licenseKey) || "").trim();
+  const lastValidatedAt = Number((state && state.lastValidatedAt) || 0);
+
+  if (isPro) {
+    const validatedText = lastValidatedAt
+      ? `Last checked ${formatRelativeValidation(lastValidatedAt)}`
+      : "Recently validated";
+    licenseCopy.textContent = `Pro is active for this browser. ${validatedText}.`;
+    setLicenseStatus(licenseKey ? `Active license: ${maskLicenseKey(licenseKey)}` : "Pro license active.");
+    return;
+  }
+
+  licenseCopy.textContent = "Paste your Lemon Squeezy license key once. The extension will silently recheck it every 24 hours.";
+  if (!licenseStatus.textContent) {
+    setLicenseStatus("");
+  }
+}
+
+function setLicenseStatus(message, isError = false) {
+  licenseStatus.textContent = message || "";
+  licenseStatus.classList.toggle("is-error", isError);
+  licenseStatus.classList.toggle("is-success", !isError && Boolean(message));
+}
+
+function maskLicenseKey(licenseKey) {
+  const normalized = String(licenseKey || "").trim();
+  if (normalized.length <= 8) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, 4)}...${normalized.slice(-4)}`;
+}
+
+function formatRelativeValidation(timestamp) {
+  const deltaMinutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
+  if (deltaMinutes < 1) {
+    return "just now";
+  }
+
+  if (deltaMinutes < 60) {
+    return `${deltaMinutes}m ago`;
+  }
+
+  const deltaHours = Math.floor(deltaMinutes / 60);
+  if (deltaHours < 24) {
+    return `${deltaHours}h ago`;
+  }
+
+  const deltaDays = Math.floor(deltaHours / 24);
+  return `${deltaDays}d ago`;
 }
 
 async function ensureTabReadyForAutofill(tab) {

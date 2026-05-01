@@ -370,6 +370,95 @@
         border-color: rgba(129, 140, 248, 0.42);
       }
 
+      .license-card {
+        border: 1px solid rgba(129, 140, 248, 0.18);
+        border-radius: 20px;
+        padding: 16px;
+        background: linear-gradient(180deg, rgba(30, 35, 48, 0.98), rgba(22, 27, 39, 0.96));
+        box-shadow: var(--shadow);
+      }
+
+      .license-title {
+        margin: 0;
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .license-copy {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .license-form {
+        display: grid;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .license-input {
+        width: 100%;
+        border: 1px solid rgba(129, 140, 248, 0.18);
+        border-radius: 14px;
+        padding: 12px 14px;
+        background: rgba(15, 17, 23, 0.72);
+        color: var(--text);
+        font: inherit;
+      }
+
+      .license-input::placeholder {
+        color: var(--muted);
+      }
+
+      .license-input:focus {
+        outline: none;
+        border-color: rgba(129, 140, 248, 0.48);
+        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.14);
+      }
+
+      .license-button {
+        width: 100%;
+        min-height: 44px;
+        border: 1px solid rgba(129, 140, 248, 0.26);
+        border-radius: 14px;
+        padding: 11px 14px;
+        background: rgba(99, 102, 241, 0.14);
+        color: #ffffff;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+      }
+
+      .license-button:hover {
+        transform: translateY(-1px);
+        background: rgba(99, 102, 241, 0.2);
+        border-color: rgba(129, 140, 248, 0.42);
+      }
+
+      .license-button:disabled {
+        opacity: 0.7;
+        cursor: wait;
+      }
+
+      .license-status {
+        min-height: 16px;
+        margin: 10px 0 0;
+        color: #86efac;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .license-status.is-error {
+        color: #fca5a5;
+      }
+
+      .license-status.is-success {
+        color: #86efac;
+      }
+
       [hidden] {
         display: none !important;
       }
@@ -427,6 +516,16 @@
           <span class="jaa-button-text">Autofill Current Page</span>
           <span id="autofillSpinner" class="spinner" hidden aria-hidden="true"></span>
         </button>
+      </section>
+
+      <section class="license-card" aria-label="Pro license">
+        <p class="license-title">Enter your code</p>
+        <p id="licenseCopy" class="license-copy">Paste your Lemon Squeezy license key once. The extension will silently recheck it every 24 hours.</p>
+        <div class="license-form">
+          <input id="licenseKeyInput" class="license-input" type="text" placeholder="Enter your Pro license key" autocomplete="off" spellcheck="false" />
+          <button id="activateLicenseButton" type="button" class="license-button">Activate</button>
+        </div>
+        <p id="licenseStatus" class="license-status" aria-live="polite"></p>
       </section>
 
       <section id="upgradeCard" class="upsell-card" hidden>

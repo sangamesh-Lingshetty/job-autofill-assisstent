@@ -12,6 +12,12 @@ Job Autofill Assistant Pro is a Manifest V3 Chrome Extension designed to help us
   - quick autofill
   - progress stats
   - profile access
+- Added a simple Pro license system built around:
+  - popup license-key entry
+  - background-side 24-hour silent revalidation
+  - local `isPro` / `licenseKey` / `licenseInstanceId` / `lastValidatedAt` storage
+  - direct Lemon Squeezy license activation on first use plus later instance validation, with no backend or auth system
+  - product / optional variant filtering so license keys from other Lemon products do not unlock this extension
 - Added a hidden free-plan daily-usage counter in popup state so usage can be limited without exposing the counter in the main UI
 - Added a popup Pro-upgrade gate that appears after the free daily autofill limit is reached
 - Added a popup upgrade CTA that opens the external landing page in a new browser tab
@@ -162,6 +168,8 @@ Job Autofill Assistant Pro is a Manifest V3 Chrome Extension designed to help us
 - Removed the earlier usage-limit / paywall logic from the active popup flow
 - Reintroduced a safer popup-only daily usage cap with per-day reset logic and Pro upgrade routing
 - Extended daily-limit enforcement and stats tracking to the floating page widget so both extension entry points behave consistently
+- Added 24-hour cached Pro validation so the extension can recheck licenses silently without asking users to paste keys every day
+- Added background-side license verification messaging so popup and content-script Pro checks reuse the same direct validation path
 - Fixed popup errors caused by comma-formatted numbers like `40,000`
 - Added loading and success feedback around popup-initiated autofill
 - Added graceful handling for stale content scripts after extension reloads or updates
@@ -183,6 +191,7 @@ Job Autofill Assistant Pro is a Manifest V3 Chrome Extension designed to help us
 
 ## Known Limitations
 
+- The current Pro system is intentionally simple and validates from the extension itself, so it is easier to ship but less secure than a backend-based license gate
 - Some highly custom dropdown widgets still need stronger click-based option selection support
 - Some ATS-specific composite controls may still need special-case handlers
 - Workday layouts can still vary by tenant, so some portals may need further selector tuning for custom labels, option containers, or multi-step validation behavior
@@ -195,6 +204,7 @@ Job Autofill Assistant Pro is a Manifest V3 Chrome Extension designed to help us
 
 ## Suggested Next Steps
 
+- If stronger protection is needed later, move license validation behind a backend so the most sensitive checks no longer run from the extension
 - Continue testing one ATS layout at a time, especially multi-step Workday flows with required custom dropdowns and validation-driven `Next` buttons
 - Add smarter click-selection for highly custom dropdown menus
 - Add support for multi-entry skills fields and tag inputs
