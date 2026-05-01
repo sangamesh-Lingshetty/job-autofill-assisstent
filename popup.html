@@ -9,73 +9,53 @@
   <body class="jaa-popup-body">
     <main class="jaa-app-shell jaa-app-shell--popup">
       <section id="heroCard" class="jaa-card jaa-card--hero">
-        <div class="jaa-eyebrow">Job Autofill Assistant Pro</div>
-        <h1 class="jaa-title">Autofill faster. Stay focused. Keep momentum.</h1>
-        <p class="jaa-subtitle">Smart page detection, one-click autofill, and a calm workflow designed for real job hunting.</p>
+        <div class="jaa-hero-topline">Trusted by 12,000+ job seekers. Time-saved stats are product demo values for now.</div>
+        <div class="jaa-hero-bar">
+          <div class="jaa-brand">
+            <div class="jaa-brand__icon" aria-hidden="true">J</div>
+            <div class="jaa-brand__meta">
+              <strong>Less form filling. More interviews.</strong>
+              <span>Apply to 5x more jobs without wasting hours on forms.</span>
+            </div>
+          </div>
+          <button id="heroEditButton" type="button" class="jaa-icon-button" aria-label="Edit profile">Edit</button>
+        </div>
       </section>
 
       <section id="statsBlock" class="jaa-card jaa-stats" hidden>
-        <div class="jaa-stats__headline">Keep going — you&apos;re making progress</div>
+        <div class="jaa-stats__headline">Progress</div>
         <div class="jaa-stats__grid">
           <article class="jaa-stat">
             <span class="jaa-stat__label">Applications</span>
             <strong id="statsAppliedCount" class="jaa-stat__value">0</strong>
-            <span class="jaa-stat__caption">You&apos;ve applied to jobs with help from the extension</span>
+            <span class="jaa-stat__caption">Forms filled with this extension</span>
           </article>
           <article class="jaa-stat">
             <span class="jaa-stat__label">Time saved</span>
             <strong id="statsTimeSaved" class="jaa-stat__value">0.0h</strong>
-            <span class="jaa-stat__caption">Estimated hours saved from repeated form filling</span>
+            <span class="jaa-stat__caption">Estimated autofill time saved</span>
           </article>
         </div>
       </section>
 
       <section class="jaa-card jaa-actions">
         <button id="autofillNowButton" type="button" class="jaa-button jaa-button--primary">
-          <span class="jaa-button-text">⚡ Autofill Current Page</span>
+          <span class="jaa-button-text">Autofill Current Page</span>
           <span id="autofillSpinner" class="jaa-spinner" hidden aria-hidden="true"></span>
         </button>
-        <button id="generateAnswerButton" type="button" class="jaa-button jaa-button--secondary">✨ Generate Answer</button>
-      </section>
-
-      <section class="jaa-card jaa-usage">
-        <div class="jaa-usage__label">Free plan</div>
-        <p id="usageLimitText" class="jaa-usage__value">Today: 0 / 10 autofills used</p>
       </section>
 
       <section class="jaa-card jaa-profile">
-        <button id="profileToggleButton" type="button" class="jaa-profile__toggle" aria-expanded="false" aria-controls="profilePanel">
-          <span>Profile</span>
-          <span id="profileToggleIcon" class="jaa-profile__chevron">▾</span>
-        </button>
-
-        <div id="profilePanel" class="jaa-profile__panel" hidden>
-          <div id="profileSummary" class="jaa-profile__summary"></div>
-          <div class="jaa-profile__actions">
-            <button id="editProfileButton" type="button" class="jaa-button jaa-button--ghost">Edit Profile</button>
+        <div class="jaa-profile__header">
+          <div>
+            <div class="jaa-profile__eyebrow">Profile</div>
+            <h2 class="jaa-profile__title">Single profile, ready to fill</h2>
           </div>
-
-          <div class="jaa-custom-fields">
-            <div class="jaa-custom-fields__header">
-              <h2>Custom fields</h2>
-              <p>Teach the autofill engine your own field labels and values.</p>
-            </div>
-
-            <form id="customFieldForm" class="jaa-inline-form">
-              <input id="customFieldKey" name="customFieldKey" type="text" placeholder="field_key" required />
-              <input id="customFieldKeywords" name="customFieldKeywords" type="text" placeholder="keywords, comma separated" required />
-              <input id="customFieldValue" name="customFieldValue" type="text" placeholder="value" required />
-              <button type="submit" class="jaa-button jaa-button--primary jaa-button--compact">Add Custom Field</button>
-            </form>
-
-            <div id="customFieldsList" class="jaa-custom-fields__list"></div>
-          </div>
+          <button id="editProfileButton" type="button" class="jaa-button jaa-button--ghost jaa-button--compact">Edit</button>
         </div>
-      </section>
-
-      <section class="jaa-card jaa-upgrade">
-        <a href="#" id="upgradeLink" class="jaa-upgrade__link">Upgrade to Pro →</a>
-        <p>Unlock unlimited autofill &amp; AI answers</p>
+        <div id="profilePanel" class="jaa-profile__panel">
+          <div id="profileSummary" class="jaa-profile__summary"></div>
+        </div>
       </section>
 
       <p id="status" class="jaa-status" aria-live="polite"></p>

@@ -75,28 +75,3 @@
 .jaa-fill-feedback.is-error {
   background: rgba(153, 27, 27, 0.95);
 }
-
-.jaa-ai-answer-button {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 2147483000;
-  border: 0;
-  border-radius: 999px;
-  padding: 6px 10px;
-  background: rgba(99, 102, 241, 0.96);
-  color: #ffffff;
-  font: 700 11px/1 "Segoe UI", Tahoma, sans-serif;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
-  cursor: pointer;
-  opacity: 0.96;
-}
-
-.jaa-ai-answer-button:hover {
-  opacity: 1;
-}
-
-.jaa-ai-answer-button:disabled {
-  cursor: wait;
-  opacity: 0.72;
-}

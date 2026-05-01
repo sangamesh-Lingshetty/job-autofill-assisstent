@@ -1,12 +1,13 @@
 const STORAGE_KEY = "jobAutofillProfile";
+const CUSTOM_FIELDS_STORAGE_KEY = "customFields";
 const OPEN_EDITOR_KEY = "jaaOpenEditor";
-const AI_CONFIG_KEY = "jaaAiConfig";
 const DEFAULT_PROFILE = {
   fullName: "",
   email: "",
   phone: "",
   password: "",
   city: "",
+  preferredLocation: "",
   currentCompany: "",
   currentRole: "",
   joiningDate: "",
@@ -14,8 +15,14 @@ const DEFAULT_PROFILE = {
   currentlyWorking: "no",
   linkedin: "",
   portfolio: "",
+  github: "",
+  education: "",
+  degree: "",
+  university: "",
+  graduationYear: "",
   about: "",
   experience: "",
+  skills: "",
   motivation: "",
   expectedSalary: "",
   currentSalary: "",
@@ -23,40 +30,63 @@ const DEFAULT_PROFILE = {
   relocate: "yes",
   noticeStatus: "no"
 };
-const DEFAULT_AI_CONFIG = {
-  enabled: true,
-  endpoint: "",
-  authToken: "",
-  dailyLimit: 20,
-  minIntervalMs: 2500,
-  requestTimeoutMs: 20000
-};
 
 const form = document.getElementById("profileForm");
-const aiConfigForm = document.getElementById("aiConfigForm");
 const status = document.getElementById("status");
+const toggleCustomFieldsButton = document.getElementById("toggleCustomFieldsButton");
+const customFieldsSection = document.getElementById("customFieldsSection");
+const customFieldForm = document.getElementById("customFieldForm");
+const customFieldsList = document.getElementById("customFieldsList");
 
 document.addEventListener("DOMContentLoaded", initializeOptionsPage);
 form.addEventListener("submit", handleSave);
-aiConfigForm.addEventListener("submit", handleAiConfigSave);
+form.addEventListener("input", handleAutoSaveInput);
+form.addEventListener("change", handleAutoSaveChange);
+toggleCustomFieldsButton.addEventListener("click", toggleCustomFieldsSection);
+customFieldForm.addEventListener("submit", handleCustomFieldSubmit);
 
 async function initializeOptionsPage() {
-  const profile = await getStoredProfile();
-  const aiConfig = await getStoredAiConfig();
+  const [profile, customFields] = await Promise.all([
+    getStoredProfile(),
+    getStoredCustomFields()
+  ]);
+
   hydrateForm(profile);
-  hydrateAiConfig(aiConfig);
+  renderCustomFields(customFields);
   await chrome.storage.local.remove(OPEN_EDITOR_KEY);
+}
+
+function handleAutoSaveInput() {
+  window.clearTimeout(handleAutoSaveInput.timeoutId);
+  handleAutoSaveInput.timeoutId = window.setTimeout(() => {
+    saveProfile("Saved automatically.");
+  }, 250);
+}
+
+function handleAutoSaveChange() {
+  window.clearTimeout(handleAutoSaveInput.timeoutId);
+  saveProfile("Saved automatically.");
 }
 
 async function handleSave(event) {
   event.preventDefault();
+  await saveProfile("Profile saved successfully.");
+}
 
-  const profile = {
+async function saveProfile(successMessage) {
+  const profile = collectProfileFromForm();
+  await chrome.storage.local.set({ [STORAGE_KEY]: profile });
+  showStatus(successMessage);
+}
+
+function collectProfileFromForm() {
+  return {
     fullName: form.fullName.value.trim(),
     email: form.email.value.trim(),
     phone: form.phone.value.trim(),
     password: form.password.value,
     city: form.city.value.trim(),
+    preferredLocation: form.preferredLocation.value.trim(),
     currentCompany: form.currentCompany.value.trim(),
     currentRole: form.currentRole.value.trim(),
     joiningDate: form.joiningDate.value.trim(),
@@ -64,8 +94,14 @@ async function handleSave(event) {
     currentlyWorking: normalizeBooleanChoice(form.currentlyWorking.value, "no"),
     linkedin: form.linkedin.value.trim(),
     portfolio: form.portfolio.value.trim(),
+    github: form.github.value.trim(),
+    education: form.education.value.trim(),
+    degree: form.degree.value.trim(),
+    university: form.university.value.trim(),
+    graduationYear: normalizeNumber(form.graduationYear.value),
     about: form.about.value.trim(),
     experience: form.experience.value.trim(),
+    skills: form.skills.value.trim(),
     motivation: form.motivation.value.trim(),
     expectedSalary: normalizeNumber(form.expectedSalary.value),
     currentSalary: normalizeNumber(form.currentSalary.value),
@@ -73,9 +109,6 @@ async function handleSave(event) {
     relocate: normalizeBooleanChoice(form.relocate.value, "yes"),
     noticeStatus: normalizeBooleanChoice(form.noticeStatus.value, "no")
   };
-
-  await chrome.storage.local.set({ [STORAGE_KEY]: profile });
-  showStatus("Profile saved successfully.");
 }
 
 async function getStoredProfile() {
@@ -86,12 +119,9 @@ async function getStoredProfile() {
   };
 }
 
-async function getStoredAiConfig() {
-  const stored = await chrome.storage.local.get(AI_CONFIG_KEY);
-  return {
-    ...DEFAULT_AI_CONFIG,
-    ...(stored[AI_CONFIG_KEY] || {})
-  };
+async function getStoredCustomFields() {
+  const stored = await chrome.storage.local.get(CUSTOM_FIELDS_STORAGE_KEY);
+  return sanitizeCustomFields(stored[CUSTOM_FIELDS_STORAGE_KEY] || {});
 }
 
 function hydrateForm(profile) {
@@ -103,31 +133,130 @@ function hydrateForm(profile) {
   }
 }
 
-function hydrateAiConfig(config) {
-  for (const [key, value] of Object.entries(config)) {
-    const field = aiConfigForm.elements.namedItem(key);
-    if (field) {
-      field.value = key === "enabled" ? (value ? "yes" : "no") : String(value);
-    }
+function toggleCustomFieldsSection() {
+  const isHidden = customFieldsSection.hidden;
+  customFieldsSection.hidden = !isHidden;
+  toggleCustomFieldsButton.textContent = isHidden ? "Hide Custom Fields" : "Custom Fields";
+}
+
+async function handleCustomFieldSubmit(event) {
+  event.preventDefault();
+
+  const formData = new FormData(customFieldForm);
+  const fieldKey = normalizeCustomFieldKey(formData.get("customFieldKey"));
+  const keywords = String(formData.get("customFieldKeywords") || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const value = String(formData.get("customFieldValue") || "").trim();
+
+  if (!fieldKey || !keywords.length || !value) {
+    showStatus("Add a field key, at least one label, and a value.", true);
+    return;
+  }
+
+  const customFields = await getStoredCustomFields();
+  customFields[fieldKey] = {
+    keywords,
+    value
+  };
+
+  await chrome.storage.local.set({ [CUSTOM_FIELDS_STORAGE_KEY]: customFields });
+  await syncCustomFieldsToActiveTab(customFields);
+  customFieldForm.reset();
+  renderCustomFields(customFields);
+  customFieldsSection.hidden = false;
+  toggleCustomFieldsButton.textContent = "Hide Custom Fields";
+  showStatus("Custom field saved.");
+}
+
+function renderCustomFields(customFields) {
+  const entries = Object.entries(customFields);
+  if (!entries.length) {
+    customFieldsList.innerHTML = `
+      <div class="jaa-empty-state">
+        <strong>No custom fields yet</strong>
+        <span>Add one when an application uses unusual labels.</span>
+      </div>
+    `;
+    return;
+  }
+
+  customFieldsList.innerHTML = entries
+    .map(([fieldKey, config]) => `
+      <article class="jaa-custom-field-item">
+        <div>
+          <strong>${escapeHtml(fieldKey)}</strong>
+          <p>${escapeHtml((config.keywords || []).join(", "))}</p>
+          <span>${escapeHtml(config.value || "")}</span>
+        </div>
+        <button type="button" class="jaa-button jaa-button--ghost jaa-button--compact" data-delete-custom-field="${escapeHtml(fieldKey)}">Delete</button>
+      </article>
+    `)
+    .join("");
+
+  for (const button of customFieldsList.querySelectorAll("[data-delete-custom-field]")) {
+    button.addEventListener("click", handleDeleteCustomField);
   }
 }
 
-async function handleAiConfigSave(event) {
-  event.preventDefault();
+async function handleDeleteCustomField(event) {
+  const fieldKey = event.currentTarget.getAttribute("data-delete-custom-field");
+  if (!fieldKey) {
+    return;
+  }
 
-  const config = {
-    endpoint: aiConfigForm.endpoint.value.trim(),
-    authToken: aiConfigForm.authToken.value.trim(),
-    dailyLimit: normalizePositiveInteger(aiConfigForm.dailyLimit.value, DEFAULT_AI_CONFIG.dailyLimit),
-    minIntervalMs: normalizePositiveInteger(aiConfigForm.minIntervalMs.value, DEFAULT_AI_CONFIG.minIntervalMs),
-    requestTimeoutMs: normalizePositiveInteger(aiConfigForm.requestTimeoutMs.value, DEFAULT_AI_CONFIG.requestTimeoutMs),
-    enabled: aiConfigForm.enabled.value === "yes"
-  };
+  const customFields = await getStoredCustomFields();
+  delete customFields[fieldKey];
+  await chrome.storage.local.set({ [CUSTOM_FIELDS_STORAGE_KEY]: customFields });
+  await syncCustomFieldsToActiveTab(customFields);
+  renderCustomFields(customFields);
+  showStatus("Custom field deleted.");
+}
 
-  await chrome.storage.local.set({
-    [AI_CONFIG_KEY]: config
-  });
-  showStatus("AI backend settings saved successfully.");
+async function syncCustomFieldsToActiveTab(customFields) {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.id) {
+      return;
+    }
+
+    await chrome.tabs.sendMessage(tab.id, {
+      type: "JAA_SYNC_CUSTOM_FIELDS",
+      customFields
+    });
+  } catch (error) {
+    // Ignore pages where the content script is not active yet.
+  }
+}
+
+function sanitizeCustomFields(customFields) {
+  if (!customFields || typeof customFields !== "object") {
+    return {};
+  }
+
+  return Object.entries(customFields).reduce((accumulator, [fieldKey, config]) => {
+    const normalizedKey = normalizeCustomFieldKey(fieldKey);
+    if (!normalizedKey || !config || typeof config !== "object") {
+      return accumulator;
+    }
+
+    accumulator[normalizedKey] = {
+      keywords: Array.isArray(config.keywords)
+        ? config.keywords.map((keyword) => String(keyword || "").trim()).filter(Boolean)
+        : [],
+      value: String(config.value || "").trim()
+    };
+    return accumulator;
+  }, {});
+}
+
+function normalizeCustomFieldKey(key) {
+  return String(key || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 function normalizeNumber(value) {
@@ -149,12 +278,7 @@ function normalizeBooleanChoice(value, fallback) {
 }
 
 function isNumericProfileKey(key) {
-  return ["expectedSalary", "currentSalary", "notice"].includes(key);
-}
-
-function normalizePositiveInteger(value, fallback) {
-  const parsed = Number.parseInt(String(value || "").trim(), 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  return ["graduationYear", "expectedSalary", "currentSalary", "notice"].includes(key);
 }
 
 function showStatus(message, isError = false) {
@@ -165,5 +289,14 @@ function showStatus(message, isError = false) {
   showStatus.timeoutId = window.setTimeout(() => {
     status.textContent = "";
     status.classList.remove("is-error", "is-success");
-  }, 2600);
+  }, 2200);
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }

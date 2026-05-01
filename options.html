@@ -11,54 +11,89 @@
       <section class="jaa-card jaa-card--hero">
         <div class="jaa-eyebrow">Profile Editor</div>
         <h1 class="jaa-title">Save your details once</h1>
-        <p class="jaa-subtitle">Keep your profile accurate so each autofill run feels instant and reliable.</p>
+        <p class="jaa-subtitle">Keep your profile accurate so each autofill run feels instant and reliable. Changes are saved automatically while you type.</p>
       </section>
 
       <section class="jaa-card">
-        <form id="profileForm" class="jaa-form">
+        <div class="jaa-editor-toolbar">
+          <div class="jaa-editor-toolbar__copy">
+            <strong>Build trust with every autofill</strong>
+            <p>Used across common ATS forms like Workday, Greenhouse-style flows, and custom careers pages.</p>
+          </div>
+          <button id="toggleCustomFieldsButton" type="button" class="jaa-button jaa-button--ghost jaa-button--compact">Custom Fields</button>
+        </div>
+
+        <section id="customFieldsSection" class="jaa-custom-fields" hidden>
+          <form id="customFieldForm" class="jaa-inline-form">
+            <input id="customFieldKey" name="customFieldKey" type="text" placeholder="field key" required />
+            <input id="customFieldKeywords" name="customFieldKeywords" type="text" placeholder="field labels, comma separated" required />
+            <input id="customFieldValue" name="customFieldValue" type="text" placeholder="value to autofill" required />
+            <div class="jaa-inline-form__action">
+              <button type="submit" class="jaa-button jaa-button--primary jaa-button--compact">Add Custom Field</button>
+            </div>
+          </form>
+          <div id="customFieldsList" class="jaa-custom-fields__list"></div>
+        </section>
+
+        <form id="profileForm" class="jaa-form" novalidate>
           <label class="jaa-field">
             <span>Full Name</span>
             <input type="text" id="fullName" name="fullName" autocomplete="name" />
+            <small class="jaa-field__hint">Matches fields like full name, candidate name, and applicant name.</small>
           </label>
 
           <label class="jaa-field">
-            <span>Email</span>
+            <span>Email Address</span>
             <input type="email" id="email" name="email" autocomplete="email" />
+            <small class="jaa-field__hint">Used for email, contact email, and email address fields.</small>
           </label>
 
           <label class="jaa-field">
-            <span>Phone</span>
+            <span>Phone Number</span>
             <input type="tel" id="phone" name="phone" autocomplete="tel" />
+            <small class="jaa-field__hint">Also used for mobile, contact number, and WhatsApp number.</small>
           </label>
 
           <label class="jaa-field">
             <span>Password</span>
             <input type="password" id="password" name="password" autocomplete="new-password" />
+            <small class="jaa-field__hint">Used when a portal asks you to create an account before applying.</small>
           </label>
 
           <label class="jaa-field">
-            <span>Current City</span>
+            <span>Current Location / City</span>
             <input type="text" id="city" name="city" autocomplete="address-level2" />
+            <small class="jaa-field__hint">Matches current location, city, and where are you based.</small>
+          </label>
+
+          <label class="jaa-field">
+            <span>Preferred Job Location</span>
+            <input type="text" id="preferredLocation" name="preferredLocation" />
+            <small class="jaa-field__hint">Used for preferred location, desired location, and work location.</small>
           </label>
 
           <label class="jaa-field">
             <span>Current Company</span>
             <input type="text" id="currentCompany" name="currentCompany" />
+            <small class="jaa-field__hint">Matches current employer, company name, and organization name.</small>
           </label>
 
           <label class="jaa-field">
-            <span>Current Role</span>
+            <span>Current Role / Job Title</span>
             <input type="text" id="currentRole" name="currentRole" />
+            <small class="jaa-field__hint">Used for designation, title, position, and current role.</small>
           </label>
 
           <label class="jaa-field">
             <span>Date of Joining</span>
-            <input type="text" id="joiningDate" name="joiningDate" placeholder="16 June 2014" />
+            <input type="text" id="joiningDate" name="joiningDate" placeholder="24 Feb 2025" />
+            <small class="jaa-field__hint">Matches joining date, start date, and employment start date.</small>
           </label>
 
           <label class="jaa-field">
             <span>Date of Relieving</span>
-            <input type="text" id="relievingDate" name="relievingDate" placeholder="16 July 2018" />
+            <input type="text" id="relievingDate" name="relievingDate" placeholder="16 Jul 2018" />
+            <small class="jaa-field__hint">Used for relieving date, end date, and last working day.</small>
           </label>
 
           <label class="jaa-field">
@@ -79,19 +114,54 @@
             <input type="url" id="portfolio" name="portfolio" autocomplete="url" />
           </label>
 
+          <label class="jaa-field">
+            <span>GitHub URL</span>
+            <input type="url" id="github" name="github" autocomplete="url" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Highest Education</span>
+            <input type="text" id="education" name="education" />
+            <small class="jaa-field__hint">Useful for education, qualification, and academic background fields.</small>
+          </label>
+
+          <label class="jaa-field">
+            <span>Degree / Specialization</span>
+            <input type="text" id="degree" name="degree" />
+          </label>
+
+          <label class="jaa-field">
+            <span>University / College</span>
+            <input type="text" id="university" name="university" />
+          </label>
+
+          <label class="jaa-field">
+            <span>Graduation Year</span>
+            <input type="text" id="graduationYear" name="graduationYear" inputmode="numeric" />
+          </label>
+
           <label class="jaa-field jaa-field--full">
-            <span>About Me</span>
+            <span>Professional Summary</span>
             <textarea id="about" name="about" rows="4"></textarea>
+            <small class="jaa-field__hint">Works for prompts like tell us about yourself, introduce yourself, or summary.</small>
           </label>
 
           <label class="jaa-field jaa-field--full">
-            <span>Experience</span>
+            <span>Work Experience</span>
             <textarea id="experience" name="experience" rows="4"></textarea>
+            <small class="jaa-field__hint">Used for experience summary, work history, and years of experience style questions.</small>
           </label>
 
           <label class="jaa-field jaa-field--full">
-            <span>Why Do You Want This Job?</span>
+            <span>Skills</span>
+            <textarea id="skills" name="skills" rows="3"></textarea>
+            <small class="jaa-field__hint">Matches skills, technical skills, key skills, and tool stack style fields.</small>
+          </label>
+
+          <label class="jaa-field jaa-field--full">
+            <span>Why This Role / Cover Letter Answer</span>
             <textarea id="motivation" name="motivation" rows="4"></textarea>
+            <small class="jaa-field__hint">Used for why this role, why do you want this job, and short motivation prompts.</small>
           </label>
 
           <label class="jaa-field">
@@ -105,7 +175,7 @@
           </label>
 
           <label class="jaa-field">
-            <span>Notice Period</span>
+            <span>Notice Period / Availability</span>
             <input type="text" id="notice" name="notice" inputmode="numeric" />
           </label>
 
@@ -127,52 +197,6 @@
 
           <div class="jaa-form__actions">
             <button type="submit" class="jaa-button jaa-button--primary">Save Profile</button>
-          </div>
-        </form>
-      </section>
-
-      <section class="jaa-card">
-        <div class="jaa-custom-fields__header">
-          <h2>AI Answer Backend</h2>
-          <p>Use your own backend endpoint here. Keep provider keys on the server, not in the extension.</p>
-        </div>
-
-        <form id="aiConfigForm" class="jaa-form">
-          <label class="jaa-field jaa-field--full">
-            <span>Backend Endpoint</span>
-            <input type="url" id="endpoint" name="endpoint" placeholder="https://your-backend.example.com/generate-answer" />
-          </label>
-
-          <label class="jaa-field jaa-field--full">
-            <span>Access Token (optional)</span>
-            <input type="password" id="authToken" name="authToken" placeholder="Backend-issued token" />
-          </label>
-
-          <label class="jaa-field">
-            <span>Daily Limit</span>
-            <input type="number" id="dailyLimit" name="dailyLimit" min="1" step="1" />
-          </label>
-
-          <label class="jaa-field">
-            <span>Min Gap (ms)</span>
-            <input type="number" id="minIntervalMs" name="minIntervalMs" min="0" step="100" />
-          </label>
-
-          <label class="jaa-field">
-            <span>Request Timeout (ms)</span>
-            <input type="number" id="requestTimeoutMs" name="requestTimeoutMs" min="1000" step="1000" />
-          </label>
-
-          <label class="jaa-field">
-            <span>Enable AI Answers</span>
-            <select id="enabled" name="enabled">
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
-          </label>
-
-          <div class="jaa-form__actions">
-            <button type="submit" class="jaa-button jaa-button--primary">Save AI Settings</button>
           </div>
         </form>
       </section>
