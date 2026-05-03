@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Job Autofill – Auto Fill Job Applications Fast",
   "description": "Autofill job applications in 1 click. Save details once and fill job forms instantly on any website",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "permissions": [
     "storage",
     "activeTab",

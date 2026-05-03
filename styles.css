@@ -1,11 +1,14 @@
 #jaa-fill-widget {
   position: fixed;
-  top: calc(100vh - 72px);
-  left: calc(100vw - 272px);
+  top: auto;
+  left: auto;
+  right: 16px;
+  bottom: 16px;
   z-index: 2147483647;
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  max-width: min(calc(100vw - 16px), 360px);
   padding: 8px;
   border: 1px solid rgba(129, 140, 248, 0.18);
   border-radius: 999px;
@@ -32,6 +35,8 @@
 }
 
 #jaa-fill-button {
+  flex: 1 1 auto;
+  min-width: 0;
   border: 0;
   border-radius: 999px;
   padding: 13px 18px;
@@ -42,6 +47,8 @@
   box-shadow: 0 12px 26px rgba(99, 102, 241, 0.34);
   cursor: pointer;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
 }
 

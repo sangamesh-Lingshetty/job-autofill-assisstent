@@ -36,6 +36,9 @@ const DEFAULT_WIDGET_PREFS = {
   left: null,
   top: null
 };
+const WIDGET_VIEWPORT_MARGIN = 16;
+const DEFAULT_WIDGET_WIDTH = 320;
+const DEFAULT_WIDGET_HEIGHT = 56;
 const widgetRuntimeState = {
   initializing: false,
   dismissedForPage: false,
@@ -398,9 +401,10 @@ async function initializeFloatingButton() {
 
   widget.appendChild(button);
   widget.appendChild(closeButton);
+  document.body.appendChild(widget);
   applyWidgetPosition(widget, widgetPrefs);
   enableWidgetDragging(widget);
-  document.body.appendChild(widget);
+  bindWidgetViewportTracking(widget);
   refreshFloatingWidgetVisibility();
   widgetRuntimeState.initializing = false;
 }
@@ -428,7 +432,7 @@ async function handleAutofillClick() {
   widgetRuntimeState.activeProfile = profile || null;
 
   if (!hasSavedProfile(profile)) {
-    showFeedback("Add your profile details first. Opening the profile editor...", true);
+    showFeedback("Add your profile details first. Opening the profile editor...", true, 4200);
     await requestOpenProfileEditor();
     return {
       ok: false,
@@ -439,7 +443,7 @@ async function handleAutofillClick() {
   const usageState = await getUsageState();
   if (hasReachedDailyLimit(usageState.dailyUsage, usageState.isPro)) {
     const savedHours = ((usageState.dailyUsage.count * ESTIMATED_MINUTES_PER_AUTOFILL) / 60).toFixed(1);
-    showFeedback(`You finished today's ${FREE_DAILY_LIMIT} free autofills and saved ${savedHours}h. Upgrade to Pro for unlimited access.`, true);
+    showFeedback(`You finished today's ${FREE_DAILY_LIMIT} free autofills and saved ${savedHours}h. Upgrade to Pro for unlimited access.`, true, 4200);
     await requestOpenUpgradePage();
     return {
       ok: false,
@@ -461,7 +465,7 @@ async function handleAutofillClick() {
   const totalFilledCount = filledCount + workdayHandledCount;
 
   if (!totalFilledCount) {
-    showFeedback("No supported job application fields were found on this page.", true);
+    showFeedback("No supported job application fields were found on this page. Scroll through the form or open the actual apply page and try again.", true, 4200);
     return {
       ok: false,
       message: "No supported job application fields were found on this page."
@@ -696,10 +700,16 @@ async function saveWidgetPrefs(prefs) {
 }
 
 function applyWidgetPosition(widget, prefs) {
-  const left = Number.isFinite(prefs.left) ? prefs.left : window.innerWidth - 260;
-  const top = Number.isFinite(prefs.top) ? prefs.top : window.innerHeight - 72;
-  widget.style.left = `${Math.max(8, left)}px`;
-  widget.style.top = `${Math.max(8, top)}px`;
+  const bounds = getWidgetViewportBounds(widget);
+  const hasStoredLeft = Number.isFinite(prefs.left);
+  const hasStoredTop = Number.isFinite(prefs.top);
+  const left = hasStoredLeft ? prefs.left : bounds.maxLeft;
+  const top = hasStoredTop ? prefs.top : bounds.maxTop;
+
+  widget.style.right = "auto";
+  widget.style.bottom = "auto";
+  widget.style.left = `${clamp(left, bounds.minLeft, bounds.maxLeft)}px`;
+  widget.style.top = `${clamp(top, bounds.minTop, bounds.maxTop)}px`;
 }
 
 function readWidgetPosition(widget) {
@@ -719,6 +729,20 @@ function enableWidgetDragging(widget) {
 
     target.addEventListener("pointerdown", (event) => startWidgetDrag(event, widget));
   }
+}
+
+function bindWidgetViewportTracking(widget) {
+  if (widget.dataset.viewportTrackingBound === "true") {
+    return;
+  }
+
+  const handleViewportChange = () => {
+    applyWidgetPosition(widget, readWidgetPosition(widget));
+  };
+
+  window.addEventListener("resize", handleViewportChange);
+  window.addEventListener("orientationchange", handleViewportChange);
+  widget.dataset.viewportTrackingBound = "true";
 }
 
 function startWidgetDrag(event, widget) {
@@ -769,6 +793,22 @@ function startWidgetDrag(event, widget) {
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function getWidgetViewportBounds(widget) {
+  const width = widget && widget.offsetWidth ? widget.offsetWidth : DEFAULT_WIDGET_WIDTH;
+  const height = widget && widget.offsetHeight ? widget.offsetHeight : DEFAULT_WIDGET_HEIGHT;
+  const minLeft = WIDGET_VIEWPORT_MARGIN;
+  const minTop = WIDGET_VIEWPORT_MARGIN;
+  const maxLeft = Math.max(minLeft, window.innerWidth - width - WIDGET_VIEWPORT_MARGIN);
+  const maxTop = Math.max(minTop, window.innerHeight - height - WIDGET_VIEWPORT_MARGIN);
+
+  return {
+    minLeft,
+    minTop,
+    maxLeft,
+    maxTop
+  };
 }
 
 function detectFieldIntent(field, mergedMappings = mergeMappings()) {
@@ -3271,7 +3311,7 @@ function getNameParts(fullName) {
   };
 }
 
-function showFeedback(message, isError = false) {
+function showFeedback(message, isError = false, durationMs = 2600) {
   if (!document.body) {
     return;
   }
@@ -3292,7 +3332,7 @@ function showFeedback(message, isError = false) {
     if (feedback) {
       feedback.hidden = true;
     }
-  }, 2600);
+  }, durationMs);
 }
 
 function watchForBodyAvailability() {
