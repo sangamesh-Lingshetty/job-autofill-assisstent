@@ -3,6 +3,7 @@ const BUTTON_ID = "jaa-fill-button";
 const WIDGET_ID = "jaa-fill-widget";
 const CLOSE_ID = "jaa-fill-close";
 const FEEDBACK_ID = "jaa-fill-feedback";
+const LIMIT_MODAL_ID = "jaa-limit-modal";
 const WIDGET_PREFS_KEY = "jaaFloatingWidgetPrefs";
 const CUSTOM_FIELDS_STORAGE_KEY = "customFields";
 const STATS_KEY = "jaaStats";
@@ -48,7 +49,8 @@ const widgetRuntimeState = {
   observerAutofillTimer: 0,
   autofillInProgress: false,
   workdayEnhancementTimer: 0,
-  lastWorkdayEnhancementAt: 0
+  lastWorkdayEnhancementAt: 0,
+  limitReached: false
 };
 
 const FIELD_MAPPINGS = {
@@ -441,10 +443,14 @@ async function handleAutofillClick() {
   }
 
   const usageState = await getUsageState();
+  widgetRuntimeState.limitReached = hasReachedDailyLimit(usageState.dailyUsage, usageState.isPro);
   if (hasReachedDailyLimit(usageState.dailyUsage, usageState.isPro)) {
     const savedHours = ((usageState.dailyUsage.count * ESTIMATED_MINUTES_PER_AUTOFILL) / 60).toFixed(1);
-    showFeedback(`You finished today's ${FREE_DAILY_LIMIT} free autofills and saved ${savedHours}h. Upgrade to Pro for unlimited access.`, true, 4200);
-    await requestOpenUpgradePage();
+    showFeedback(`You finished today's ${FREE_DAILY_LIMIT} free autofills and saved ${savedHours}h.`, true, 4200);
+    showLimitReachedModal({
+      dailyCount: usageState.dailyUsage.count,
+      savedHours
+    });
     return {
       ok: false,
       message: `Today's free limit is complete. You saved ${savedHours}h. Upgrade to Pro for unlimited autofill.`
@@ -594,6 +600,7 @@ async function recordAutofillUsage(usageState) {
     date: usageState.dailyUsage.date,
     count: Number(usageState.dailyUsage.count || 0) + 1
   };
+  widgetRuntimeState.limitReached = hasReachedDailyLimit(nextDailyUsage, usageState.isPro);
 
   try {
     await chrome.storage.local.set({
@@ -3335,6 +3342,66 @@ function showFeedback(message, isError = false, durationMs = 2600) {
   }, durationMs);
 }
 
+function showLimitReachedModal({ dailyCount, savedHours }) {
+  if (!document.body) {
+    return;
+  }
+
+  let modal = document.getElementById(LIMIT_MODAL_ID);
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = LIMIT_MODAL_ID;
+    modal.innerHTML = `
+      <div class="jaa-limit-modal__backdrop" data-jaa-limit-close="true"></div>
+      <div class="jaa-limit-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="jaa-limit-title">
+        <h2 id="jaa-limit-title" class="jaa-limit-modal__title">Daily autofill limit reached</h2>
+        <p class="jaa-limit-modal__copy" id="jaa-limit-copy"></p>
+        <div class="jaa-limit-modal__actions">
+          <button type="button" class="jaa-limit-modal__button jaa-limit-modal__button--primary" id="jaa-limit-upgrade">Unlock Unlimited</button>
+          <button type="button" class="jaa-limit-modal__button jaa-limit-modal__button--secondary" data-jaa-limit-close="true">Cancel</button>
+        </div>
+      </div>
+    `;
+
+    modal.addEventListener("click", async (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      if (target.id === "jaa-limit-upgrade") {
+        await requestOpenUpgradePage();
+        hideLimitReachedModal();
+        return;
+      }
+
+      if (target.getAttribute("data-jaa-limit-close") === "true") {
+        hideLimitReachedModal();
+      }
+    });
+
+    document.body.appendChild(modal);
+  }
+
+  const copy = modal.querySelector("#jaa-limit-copy");
+  if (copy) {
+    copy.textContent = `You have already completed ${dailyCount} autofill${dailyCount === 1 ? "" : "s"} today and saved about ${savedHours}h. Upgrade for unlimited autofill, or cancel to stay on this page.`;
+  }
+
+  modal.hidden = false;
+  modal.classList.add("is-visible");
+}
+
+function hideLimitReachedModal() {
+  const modal = document.getElementById(LIMIT_MODAL_ID);
+  if (!modal) {
+    return;
+  }
+
+  modal.classList.remove("is-visible");
+  modal.hidden = true;
+}
+
 function watchForBodyAvailability() {
   if (document.body) {
     initializeFloatingButton();
@@ -3379,7 +3446,7 @@ function handlePageNavigationState() {
 }
 
 function scheduleObserverAutofill() {
-  if (!widgetRuntimeState.activeProfile || widgetRuntimeState.autofillInProgress) {
+  if (!widgetRuntimeState.activeProfile || widgetRuntimeState.autofillInProgress || widgetRuntimeState.limitReached) {
     return;
   }
 

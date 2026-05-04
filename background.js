@@ -1,4 +1,4 @@
-const PRO_UPGRADE_URL = "https://www.deeplock.tech/auto-fill-job";
+const PRO_UPGRADE_URL = "https://deeplockproversion.lemonsqueezy.com/checkout/buy/5c4c90ee-4785-4f14-937c-6dcaaee63335";
 const LEMON_LICENSE_ACTIVATE_URL = "https://api.lemonsqueezy.com/v1/licenses/activate";
 const LEMON_LICENSE_VALIDATE_URL = "https://api.lemonsqueezy.com/v1/licenses/validate";
 const PRO_VALIDATION_TTL_MS = 24 * 60 * 60 * 1000;

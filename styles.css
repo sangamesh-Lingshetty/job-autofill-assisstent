@@ -103,3 +103,79 @@
 .jaa-fill-feedback.is-error {
   background: rgba(153, 27, 27, 0.95);
 }
+
+#jaa-limit-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: none;
+}
+
+#jaa-limit-modal.is-visible {
+  display: block;
+}
+
+.jaa-limit-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.58);
+  backdrop-filter: blur(4px);
+}
+
+.jaa-limit-modal__dialog {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(calc(100vw - 32px), 420px);
+  padding: 22px;
+  border: 1px solid rgba(129, 140, 248, 0.22);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(15, 17, 23, 0.98), rgba(30, 35, 48, 0.98));
+  color: #ffffff;
+  box-shadow: 0 24px 60px rgba(2, 6, 23, 0.48);
+  transform: translate(-50%, -50%);
+}
+
+.jaa-limit-modal__title {
+  margin: 0;
+  font: 700 22px/1.2 "Segoe UI", Tahoma, sans-serif;
+}
+
+.jaa-limit-modal__copy {
+  margin: 12px 0 0;
+  color: rgba(226, 232, 240, 0.9);
+  font: 400 14px/1.6 "Segoe UI", Tahoma, sans-serif;
+}
+
+.jaa-limit-modal__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.jaa-limit-modal__button {
+  flex: 1 1 0;
+  min-height: 46px;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font: 700 14px/1 "Segoe UI", Tahoma, sans-serif;
+  cursor: pointer;
+  transition: transform 0.16s ease, filter 0.16s ease, background 0.16s ease;
+}
+
+.jaa-limit-modal__button:hover {
+  filter: brightness(1.06);
+}
+
+.jaa-limit-modal__button--primary {
+  border: 0;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #ffffff;
+  box-shadow: 0 12px 26px rgba(99, 102, 241, 0.34);
+}
+
+.jaa-limit-modal__button--secondary {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(30, 35, 48, 0.92);
+  color: #ffffff;
+}
