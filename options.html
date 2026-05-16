@@ -25,11 +25,13 @@
 
         <section id="customFieldsSection" class="jaa-custom-fields" hidden>
           <form id="customFieldForm" class="jaa-inline-form">
+            <input id="editingCustomFieldKey" name="editingCustomFieldKey" type="hidden" />
             <input id="customFieldKey" name="customFieldKey" type="text" placeholder="field key" required />
             <input id="customFieldKeywords" name="customFieldKeywords" type="text" placeholder="field labels, comma separated" required />
             <input id="customFieldValue" name="customFieldValue" type="text" placeholder="value to autofill" required />
             <div class="jaa-inline-form__action">
-              <button type="submit" class="jaa-button jaa-button--primary jaa-button--compact">Add Custom Field</button>
+              <button id="customFieldSubmitButton" type="submit" class="jaa-button jaa-button--primary jaa-button--compact">Add Custom Field</button>
+              <button id="cancelCustomFieldEditButton" type="button" class="jaa-button jaa-button--ghost jaa-button--compact" hidden>Cancel Edit</button>
             </div>
           </form>
           <div id="customFieldsList" class="jaa-custom-fields__list"></div>

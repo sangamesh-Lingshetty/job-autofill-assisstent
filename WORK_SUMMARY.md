@@ -29,12 +29,14 @@ Job Autofill Assistant Pro is a Manifest V3 Chrome Extension designed to help us
 - Built a dedicated options-page profile editor opened from the popup in a new tab
 - Added auto-save behavior in the options page so profile changes are saved while the user types or changes fields
 - Added options-page custom-field management with add and delete support
+- Expanded options-page custom-field management so users can add, edit, rename, cancel editing, and delete custom-field definitions from the dedicated editor
 - Stored all profile data in `chrome.storage.local` with no backend dependency
 - Added a floating `Autofill Job Application` button through `content.js`
 - Added draggable floating-button behavior with persisted position across pages
 - Added page-aware widget visibility so the floating button appears only when likely autofill targets exist
 - Added Workday-aware widget visibility fallback so the button can appear on Workday-style pages that use custom controls
 - Added page-level dismiss behavior so users can hide the floating widget on a page when it is distracting
+- Added repeated-dismiss suppression for the floating widget so it can stop reappearing on the same page pattern after the user closes it multiple times
 - Implemented smart field detection using:
   - `name`
   - `id`
@@ -112,17 +114,22 @@ Job Autofill Assistant Pro is a Manifest V3 Chrome Extension designed to help us
 - Custom-field autofill priority so user-defined values can override built-in mappings
 - Workday support for:
   - Workday page detection using URL, hostname, body-text, and automation-attribute signals
+  - Workday auth-page detection so login / sign-up style pages can be treated as supported autofill targets too
   - custom combobox dropdown selection with delayed option-picking retries
   - custom radiogroup handling for yes/no and similar choices
   - visible-section filling for Work Experience and Education blocks
   - step-button detection for `Next` and `Save and Continue` without auto-clicking
   - resume-upload detection logs without attempting file upload
   - observer-triggered Workday re-processing with duplicate-click safeguards
+- Added Google Forms page detection so Google Form pages can participate in the supported autofill-target flow
+- Expanded low-risk field-keyword coverage using current public Lever / Greenhouse-style application patterns for labels like `mobile phone`, `candidate location`, `what location are you applying for`, and `video resume url`
 - Smart widget visibility using:
   - minimum field-count checks
   - important job-form keyword scoring
   - URL signal boosts for job / career / apply / hiring pages
+  - Google Forms page detection fallback
   - Workday-specific custom-control detection
+  - Workday auth-page detection fallback
   - MutationObserver re-evaluation for SPA navigation
 
 ## Input Types Supported
@@ -176,6 +183,7 @@ Job Autofill Assistant Pro is a Manifest V3 Chrome Extension designed to help us
 - Added popup-side content-script recovery using `chrome.scripting` so the active tab can be reinjected automatically after an extension reload instead of requiring a manual page refresh in many cases
 - Fixed the popup daily-limit reset to use the browser's local calendar day rather than UTC boundaries
 - Improved the floating page widget styling and strengthened the close-button hide behavior so the dismiss action works more predictably
+- Added persisted widget-dismiss counting and automatic suppression after repeated closes on the same page path so reloads are less annoying
 - Reduced incorrect matches caused by overly broad container text
 - Added stricter intent-based matching to avoid cross-filling unrelated fields
 - Prioritized company-name mapping before generic person-name mapping
@@ -194,7 +202,9 @@ Job Autofill Assistant Pro is a Manifest V3 Chrome Extension designed to help us
 - The current Pro system is intentionally simple and validates from the extension itself, so it is easier to ship but less secure than a backend-based license gate
 - Some highly custom dropdown widgets still need stronger click-based option selection support
 - Some ATS-specific composite controls may still need special-case handlers
+- Google Forms support is currently focused on page detection and standard fillable controls, so some custom Google Form widgets may still need extra handling
 - Workday layouts can still vary by tenant, so some portals may need further selector tuning for custom labels, option containers, or multi-step validation behavior
+- Workday login / sign-up handling has been widened, but real tenant-by-tenant testing is still needed to confirm account-creation and sign-in flows consistently react to synthetic input/change events
 - Resume upload is not automated
 - Final form submission is not automated
 - Rich editors and fully custom shadow-DOM components may still require manual input
@@ -206,8 +216,10 @@ Job Autofill Assistant Pro is a Manifest V3 Chrome Extension designed to help us
 
 - If stronger protection is needed later, move license validation behind a backend so the most sensitive checks no longer run from the extension
 - Continue testing one ATS layout at a time, especially multi-step Workday flows with required custom dropdowns and validation-driven `Next` buttons
+- Test Google Forms specifically for short-answer, paragraph, radio, and dropdown question types, then add dedicated control handlers where needed
 - Add smarter click-selection for highly custom dropdown menus
 - Add support for multi-entry skills fields and tag inputs
+- Consider adding built-in profile fields later for recurring ATS questions such as pronouns, sponsorship, and work authorization once the product decides those answers should be stored explicitly rather than handled through custom fields
 - Add date-format adaptation based on field type and placeholder pattern
 - Add optional inline debug mode to show which profile key matched each field
 - Expand custom-field management with editing, ordering, and validation polish inside the options page

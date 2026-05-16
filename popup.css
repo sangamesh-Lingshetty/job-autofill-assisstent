@@ -417,6 +417,8 @@ body.jaa-popup-body {
   grid-column: 1 / -1;
   display: flex;
   justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .jaa-custom-fields {
@@ -448,6 +450,13 @@ body.jaa-popup-body {
 .jaa-custom-field-item strong {
   display: block;
   margin-bottom: 4px;
+}
+
+.jaa-custom-field-item__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .jaa-custom-field-item p,

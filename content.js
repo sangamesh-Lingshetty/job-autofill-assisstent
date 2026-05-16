@@ -25,6 +25,7 @@ const IMPORTANT_KEYWORDS = [
   "notice", "company", "education"
 ];
 const ATS_HOST_SIGNALS = {
+  googleForms: ["docs.google.com", "forms.gle"],
   workday: ["workday", "myworkdayjobs", "workdayjobs"],
   indeed: ["indeed"],
   glassdoor: ["glassdoor"]
@@ -35,14 +36,18 @@ const OBSERVER_CONFIG = {
 };
 const DEFAULT_WIDGET_PREFS = {
   left: null,
-  top: null
+  top: null,
+  pageDismissals: {},
+  pageSuppressions: {}
 };
+const MAX_WIDGET_DISMISSALS_PER_PAGE = 3;
 const WIDGET_VIEWPORT_MARGIN = 16;
 const DEFAULT_WIDGET_WIDTH = 320;
 const DEFAULT_WIDGET_HEIGHT = 56;
 const widgetRuntimeState = {
   initializing: false,
   dismissedForPage: false,
+  permanentlyDismissedForPage: false,
   lastUrl: window.location.href,
   activeProfile: null,
   customFieldsCache: {},
@@ -50,8 +55,12 @@ const widgetRuntimeState = {
   autofillInProgress: false,
   workdayEnhancementTimer: 0,
   lastWorkdayEnhancementAt: 0,
-  limitReached: false
+  limitReached: false,
+  userEditTrackingSuppressed: 0
 };
+const autofilledFields = new WeakSet();
+const userEditedAutofilledFields = new WeakSet();
+const manuallyEditedRadioGroups = new Set();
 
 const FIELD_MAPPINGS = {
   full_name: [
@@ -70,7 +79,7 @@ const FIELD_MAPPINGS = {
     "email", "email address", "your email", "contact email", "e mail"
   ],
   phone: [
-    "phone", "mobile", "contact number", "phone number", "mobile number", "telephone"
+    "phone", "mobile", "contact number", "phone number", "mobile number", "mobile phone", "cell phone", "telephone"
   ],
   whatsapp: [
     "whatsapp", "whatsapp number"
@@ -115,10 +124,11 @@ const FIELD_MAPPINGS = {
   ],
   current_location: [
     "current location", "where are you based", "location", "current city", "city",
-    "current address city", "location of residence"
+    "current address city", "location of residence", "candidate location"
   ],
   preferred_location: [
-    "preferred location", "desired location", "work location", "preferred city", "job location preference"
+    "preferred location", "desired location", "work location", "preferred city", "job location preference",
+    "what location are you applying for"
   ],
   joining_date: [
     "date of joining", "joining date", "start date", "employment start date"
@@ -142,7 +152,8 @@ const FIELD_MAPPINGS = {
     "github", "github profile", "git hub", "github url"
   ],
   portfolio: [
-    "portfolio", "personal website", "website", "portfolio url", "personal site"
+    "portfolio", "personal website", "website", "portfolio url", "personal site",
+    "video resume url", "portfolio video resume url", "personal website url"
   ],
   education: [
     "education", "qualification", "academic background", "highest education", "highest qualification"
@@ -294,6 +305,7 @@ initializeFloatingButton();
 watchForBodyAvailability();
 registerRuntimeListener();
 exposeCustomFieldApi();
+registerUserEditTracking();
 
 function registerRuntimeListener() {
   if (!isExtensionContextAvailable()) {
@@ -353,6 +365,97 @@ function exposeCustomFieldApi() {
   };
 }
 
+function registerUserEditTracking() {
+  if (registerUserEditTracking.started) {
+    return;
+  }
+
+  const trackedEvents = ["beforeinput", "input", "change"];
+  for (const eventName of trackedEvents) {
+    document.addEventListener(eventName, handlePotentialManualFieldEdit, true);
+  }
+
+  registerUserEditTracking.started = true;
+}
+
+function handlePotentialManualFieldEdit(event) {
+  if (widgetRuntimeState.userEditTrackingSuppressed > 0) {
+    return;
+  }
+
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  if (target instanceof HTMLInputElement && target.type === "radio") {
+    markRadioGroupAsUserEdited(target);
+    return;
+  }
+
+  if (!autofilledFields.has(target)) {
+    return;
+  }
+
+  userEditedAutofilledFields.add(target);
+}
+
+function markAutofilledField(field) {
+  if (!(field instanceof HTMLElement)) {
+    return;
+  }
+
+  autofilledFields.add(field);
+  userEditedAutofilledFields.delete(field);
+}
+
+function markRadioGroupAsUserEdited(input) {
+  const groupKey = getRadioGroupTrackingKey(input);
+  if (groupKey) {
+    manuallyEditedRadioGroups.add(groupKey);
+  }
+}
+
+function getRadioGroupTrackingKey(input) {
+  if (!(input instanceof HTMLInputElement) || input.type !== "radio") {
+    return "";
+  }
+
+  const form = input.form;
+  const formAction = form ? normalizeText(form.getAttribute("action") || form.id || form.className || "") : "";
+  const name = normalizeText(input.name || "");
+  const label = normalizeText(getRadioOptionLabel(input));
+  return [window.location.pathname, formAction, name, label].filter(Boolean).join("::");
+}
+
+function shouldSkipAutofillForField(field, options = {}) {
+  if (options.reason !== "observer") {
+    return false;
+  }
+
+  return userEditedAutofilledFields.has(field);
+}
+
+function shouldSkipAutofillForRadioGroup(group, options = {}) {
+  if (options.reason !== "observer" || !group || !Array.isArray(group.inputs)) {
+    return false;
+  }
+
+  return group.inputs.some((input) => {
+    return userEditedAutofilledFields.has(input) || manuallyEditedRadioGroups.has(getRadioGroupTrackingKey(input));
+  });
+}
+
+function runWithoutUserEditTracking(callback) {
+  widgetRuntimeState.userEditTrackingSuppressed += 1;
+
+  try {
+    return callback();
+  } finally {
+    widgetRuntimeState.userEditTrackingSuppressed = Math.max(0, widgetRuntimeState.userEditTrackingSuppressed - 1);
+  }
+}
+
 async function initializeFloatingButton() {
   if (!document.body || document.getElementById(WIDGET_ID) || widgetRuntimeState.initializing) {
     return;
@@ -360,6 +463,7 @@ async function initializeFloatingButton() {
 
   widgetRuntimeState.initializing = true;
   const widgetPrefs = await getWidgetPrefs();
+  await syncDismissedStateForCurrentPage();
   if (document.getElementById(WIDGET_ID) || !document.body) {
     widgetRuntimeState.initializing = false;
     return;
@@ -391,7 +495,9 @@ async function initializeFloatingButton() {
   closeButton.addEventListener("click", async (event) => {
     event.preventDefault();
     event.stopPropagation();
+    const dismissalState = await recordWidgetDismissal();
     widgetRuntimeState.dismissedForPage = true;
+    widgetRuntimeState.permanentlyDismissedForPage = dismissalState.suppressed;
     widget.classList.remove("is-visible");
     widget.classList.add("is-hidden");
     widget.hidden = true;
@@ -471,10 +577,15 @@ async function handleAutofillClick() {
   const totalFilledCount = filledCount + workdayHandledCount;
 
   if (!totalFilledCount) {
-    showFeedback("No supported job application fields were found on this page. Scroll through the form or open the actual apply page and try again.", true, 4200);
+    const noFieldsMessage = isWorkdayAuthPage()
+      ? "No supported sign-in or sign-up fields were filled on this Workday page yet."
+      : isGoogleFormsPage()
+        ? "No supported Google Form fields were filled on this page yet."
+        : "No supported job application fields were found on this page. Scroll through the form or open the actual apply page and try again.";
+    showFeedback(noFieldsMessage, true, 4200);
     return {
       ok: false,
-      message: "No supported job application fields were found on this page."
+      message: noFieldsMessage
     };
   }
 
@@ -654,11 +765,27 @@ function getCurrentHostname() {
   return normalizeText(window.location.hostname || "");
 }
 
+function getCurrentPathKey() {
+  const hostname = normalizeText(window.location.hostname || "");
+  const pathname = normalizeText(window.location.pathname || "");
+  return `${hostname}${pathname ? `|${pathname}` : ""}`;
+}
+
 function isKnownAtsPage() {
   const hostname = getCurrentHostname();
   return Object.values(ATS_HOST_SIGNALS).some((signals) => {
     return signals.some((signal) => hostname.includes(signal));
   });
+}
+
+function isGoogleFormsPage() {
+  const hostname = normalizeText(window.location.hostname || "");
+  const pathname = normalizeText(window.location.pathname || "");
+  const href = normalizeText(window.location.href || "");
+
+  return (hostname.includes("docs google com") && pathname.includes("forms"))
+    || hostname.includes("forms gle")
+    || href.includes("docs google com forms");
 }
 
 function isWorkdayPage() {
@@ -671,6 +798,33 @@ function isWorkdayPage() {
     || href.includes("workday")
     || bodyText.includes("workday")
     || Boolean(document.querySelector("[data-automation-id], [data-uxi-widget-type]"));
+}
+
+function isLikelyAuthField(field) {
+  if (!(field instanceof HTMLElement)) {
+    return false;
+  }
+
+  const labelText = normalizeText(collectFieldText(field));
+  if (!labelText) {
+    return false;
+  }
+
+  return /\b(email|username|user name|sign in|signin|login|log in|password|create account|sign up|signup|register)\b/.test(labelText);
+}
+
+function isWorkdayAuthPage() {
+  if (!isWorkdayPage()) {
+    return false;
+  }
+
+  const fields = detectFillableFields();
+  if (!fields.length || fields.length > 8) {
+    return false;
+  }
+
+  const authFieldCount = fields.filter((field) => isLikelyAuthField(field)).length;
+  return authFieldCount >= 1;
 }
 
 async function getWidgetPrefs() {
@@ -962,11 +1116,15 @@ function getJobPageKeywordScore(fields) {
 
 function getUrlSignalScore() {
   const normalizedUrl = normalize(window.location.href);
-  const urlKeywords = ["job", "career", "apply", "hiring"];
+  const urlKeywords = ["job", "career", "apply", "hiring", "form", "forms"];
   return urlKeywords.some((keyword) => normalizedUrl.includes(keyword)) ? 1 : 0;
 }
 
 function isJobApplicationPage() {
+  if (isGoogleFormsPage()) {
+    return getJobApplicationFields().length >= 2;
+  }
+
   const fields = getJobApplicationFields();
   if (fields.length < 3) {
     return false;
@@ -1614,6 +1772,10 @@ function handleRadios(profile, autofillData, mergedMappings, options = {}) {
 }
 
 function fillDetectedField(field, profile, autofillData, mergedMappings, options = {}) {
+  if (shouldSkipAutofillForField(field, options)) {
+    return { filled: false };
+  }
+
   const label = getFieldLabel(field);
   const matchDetails = getFieldMatchDetails(label, mergedMappings);
   const intentKey = detectFieldIntent(field, mergedMappings);
@@ -1658,6 +1820,10 @@ function fillDetectedField(field, profile, autofillData, mergedMappings, options
 }
 
 function fillDetectedRadioGroup(group, profile, autofillData, mergedMappings, options = {}) {
+  if (shouldSkipAutofillForRadioGroup(group, options)) {
+    return { filled: false };
+  }
+
   const label = getRadioGroupLabel(group);
   const matchDetails = getFieldMatchDetails(label, mergedMappings);
   const intentKey = detectRadioIntent(group, mergedMappings) || (matchDetails.fieldKey ? mapRuleKeyToIntent(matchDetails.fieldKey) : null);
@@ -1765,17 +1931,20 @@ function fillField(field, value) {
     ? normalizeNumericValue(value)
     : field instanceof HTMLInputElement && field.type === "date"
       ? normalizeDateValue(value)
-    : String(value).trim();
+      : String(value).trim();
   if (!normalizedValue) {
     return false;
   }
 
-  const previousValue = readFieldValue(field);
-  primeFieldForFrameworks(field);
-  applyValueToField(field, normalizedValue);
-  syncFrameworkValueTracker(field, previousValue);
-  dispatchFieldEvents(field, normalizedValue);
-  dispatchFormCommitEvents(field);
+  runWithoutUserEditTracking(() => {
+    const previousValue = readFieldValue(field);
+    primeFieldForFrameworks(field);
+    applyValueToField(field, normalizedValue);
+    syncFrameworkValueTracker(field, previousValue);
+    dispatchFieldEvents(field, normalizedValue);
+    dispatchFormCommitEvents(field);
+  });
+  markAutofilledField(field);
   return true;
 }
 
@@ -1892,17 +2061,20 @@ function fillSelectField(field, value) {
     return null;
   }
 
-  const previousValue = readFieldValue(field);
-  const descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
-  if (descriptor && descriptor.set) {
-    descriptor.set.call(field, bestMatch.value);
-  } else {
-    field.value = bestMatch.value;
-  }
+  runWithoutUserEditTracking(() => {
+    const previousValue = readFieldValue(field);
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+    if (descriptor && descriptor.set) {
+      descriptor.set.call(field, bestMatch.value);
+    } else {
+      field.value = bestMatch.value;
+    }
 
-  syncFrameworkValueTracker(field, previousValue);
-  dispatchSelectEvents(field);
-  dispatchFormCommitEvents(field);
+    syncFrameworkValueTracker(field, previousValue);
+    dispatchSelectEvents(field);
+    dispatchFormCommitEvents(field);
+  });
+  markAutofilledField(field);
   return bestMatch.textContent || bestMatch.label || bestMatch.value || "";
 }
 
@@ -1937,8 +2109,11 @@ function fillRadioGroup(group, value) {
     return null;
   }
 
-  bestMatch.click();
-  bestMatch.dispatchEvent(new Event("change", { bubbles: true }));
+  runWithoutUserEditTracking(() => {
+    bestMatch.click();
+    bestMatch.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  markAutofilledField(bestMatch);
   return bestMatch;
 }
 
@@ -2410,13 +2585,16 @@ function fillCustomCombobox(field, value) {
       return false;
     }
 
-    const previousValue = readFieldValue(field);
-    primeFieldForFrameworks(field);
-    applyValueToField(field, textValue);
-    syncFrameworkValueTracker(field, previousValue);
-    dispatchFieldEvents(field, textValue);
-    dispatchFormCommitEvents(field);
-    scheduleComboboxOptionSelection(field, textValue);
+    runWithoutUserEditTracking(() => {
+      const previousValue = readFieldValue(field);
+      primeFieldForFrameworks(field);
+      applyValueToField(field, textValue);
+      syncFrameworkValueTracker(field, previousValue);
+      dispatchFieldEvents(field, textValue);
+      dispatchFormCommitEvents(field);
+      scheduleComboboxOptionSelection(field, textValue);
+    });
+    markAutofilledField(field);
     return true;
   }
 
@@ -2425,13 +2603,16 @@ function fillCustomCombobox(field, value) {
       return false;
     }
 
-    const previousValue = readFieldValue(field);
-    primeFieldForFrameworks(field);
-    field.textContent = textValue;
-    syncFrameworkValueTracker(field, previousValue);
-    dispatchFieldEvents(field, textValue);
-    dispatchFormCommitEvents(field);
-    scheduleComboboxOptionSelection(field, textValue);
+    runWithoutUserEditTracking(() => {
+      const previousValue = readFieldValue(field);
+      primeFieldForFrameworks(field);
+      field.textContent = textValue;
+      syncFrameworkValueTracker(field, previousValue);
+      dispatchFieldEvents(field, textValue);
+      dispatchFormCommitEvents(field);
+      scheduleComboboxOptionSelection(field, textValue);
+    });
+    markAutofilledField(field);
     return true;
   }
 
@@ -2440,13 +2621,16 @@ function fillCustomCombobox(field, value) {
     if (currentValue === textValue) {
       return false;
     }
-    const previousValue = readFieldValue(field);
-    primeFieldForFrameworks(field);
-    field.value = textValue;
-    syncFrameworkValueTracker(field, previousValue);
-    dispatchFieldEvents(field, textValue);
-    dispatchFormCommitEvents(field);
-    scheduleComboboxOptionSelection(field, textValue);
+    runWithoutUserEditTracking(() => {
+      const previousValue = readFieldValue(field);
+      primeFieldForFrameworks(field);
+      field.value = textValue;
+      syncFrameworkValueTracker(field, previousValue);
+      dispatchFieldEvents(field, textValue);
+      dispatchFormCommitEvents(field);
+      scheduleComboboxOptionSelection(field, textValue);
+    });
+    markAutofilledField(field);
     return true;
   }
 
@@ -2459,12 +2643,15 @@ function fillCheckboxField(field, value) {
     return false;
   }
 
-  primeFieldForFrameworks(field);
-  field.checked = shouldCheck;
-  field.dispatchEvent(new Event("input", { bubbles: true }));
-  field.dispatchEvent(new Event("change", { bubbles: true }));
-  field.dispatchEvent(new Event("blur", { bubbles: true }));
-  dispatchFormCommitEvents(field);
+  runWithoutUserEditTracking(() => {
+    primeFieldForFrameworks(field);
+    field.checked = shouldCheck;
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    field.dispatchEvent(new Event("blur", { bubbles: true }));
+    dispatchFormCommitEvents(field);
+  });
+  markAutofilledField(field);
   return true;
 }
 
@@ -2565,37 +2752,39 @@ function schedulePlatformCompatibilityPass() {
 }
 
 function runPlatformCompatibilityPass() {
-  const activeElement = document.activeElement;
-  if (activeElement instanceof HTMLElement && activeElement !== document.body) {
-    activeElement.dispatchEvent(new Event("blur", { bubbles: true }));
-    activeElement.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
-  }
+  runWithoutUserEditTracking(() => {
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement && activeElement !== document.body) {
+      activeElement.dispatchEvent(new Event("blur", { bubbles: true }));
+      activeElement.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    }
 
-  const candidateFields = detectFillableFields().filter((field) => {
-    return isMeaningfullyFilledField(field) || field.getAttribute("aria-invalid") === "true";
+    const candidateFields = detectFillableFields().filter((field) => {
+      return isMeaningfullyFilledField(field) || field.getAttribute("aria-invalid") === "true";
+    });
+
+    for (const field of candidateFields) {
+      if (field instanceof HTMLSelectElement) {
+        dispatchSelectEvents(field);
+        continue;
+      }
+
+      const currentValue = field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement
+        ? field.value
+        : field.textContent || "";
+      dispatchFieldEvents(field, currentValue);
+
+      if (isCustomCombobox(field) && currentValue) {
+        scheduleComboboxOptionSelection(field, currentValue);
+      }
+    }
+
+    const nearestForm = candidateFields[0] ? candidateFields[0].closest("form") : null;
+    if (nearestForm) {
+      nearestForm.dispatchEvent(new Event("input", { bubbles: true }));
+      nearestForm.dispatchEvent(new Event("change", { bubbles: true }));
+    }
   });
-
-  for (const field of candidateFields) {
-    if (field instanceof HTMLSelectElement) {
-      dispatchSelectEvents(field);
-      continue;
-    }
-
-    const currentValue = field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement
-      ? field.value
-      : field.textContent || "";
-    dispatchFieldEvents(field, currentValue);
-
-    if (isCustomCombobox(field) && currentValue) {
-      scheduleComboboxOptionSelection(field, currentValue);
-    }
-  }
-
-  const nearestForm = candidateFields[0] ? candidateFields[0].closest("form") : null;
-  if (nearestForm) {
-    nearestForm.dispatchEvent(new Event("input", { bubbles: true }));
-    nearestForm.dispatchEvent(new Event("change", { bubbles: true }));
-  }
 
   scheduleWorkdayEnhancements();
 }
@@ -2681,6 +2870,46 @@ function isUsableField(field) {
 
   const rect = field.getBoundingClientRect();
   return rect.width > 0 && rect.height > 0;
+}
+
+async function recordWidgetDismissal() {
+  const prefs = await getWidgetPrefs();
+  const pageKey = getCurrentPathKey();
+  const pageDismissals = {
+    ...(prefs.pageDismissals || {})
+  };
+  const pageSuppressions = {
+    ...(prefs.pageSuppressions || {})
+  };
+  const nextCount = Number(pageDismissals[pageKey] || 0) + 1;
+  pageDismissals[pageKey] = nextCount;
+
+  const suppressed = nextCount >= MAX_WIDGET_DISMISSALS_PER_PAGE;
+  if (suppressed) {
+    pageSuppressions[pageKey] = true;
+  }
+
+  await saveWidgetPrefs({
+    ...prefs,
+    pageDismissals,
+    pageSuppressions
+  });
+
+  return {
+    count: nextCount,
+    suppressed
+  };
+}
+
+async function syncDismissedStateForCurrentPage() {
+  const prefs = await getWidgetPrefs();
+  const pageKey = getCurrentPathKey();
+  widgetRuntimeState.permanentlyDismissedForPage = Boolean(
+    prefs.pageSuppressions && prefs.pageSuppressions[pageKey]
+  );
+  if (widgetRuntimeState.permanentlyDismissedForPage) {
+    widgetRuntimeState.dismissedForPage = true;
+  }
 }
 
 function isCustomCombobox(field) {
@@ -3441,7 +3670,11 @@ function handlePageNavigationState() {
   if (widgetRuntimeState.lastUrl !== window.location.href) {
     widgetRuntimeState.lastUrl = window.location.href;
     widgetRuntimeState.dismissedForPage = false;
+    widgetRuntimeState.permanentlyDismissedForPage = false;
     window.clearTimeout(widgetRuntimeState.observerAutofillTimer);
+    void syncDismissedStateForCurrentPage().then(() => {
+      refreshFloatingWidgetVisibility();
+    });
   }
 }
 
@@ -3476,7 +3709,9 @@ function refreshFloatingWidgetVisibility() {
     return;
   }
 
-  const shouldShow = !widgetRuntimeState.dismissedForPage && pageHasAutofillTargets();
+  const shouldShow = !widgetRuntimeState.dismissedForPage
+    && !widgetRuntimeState.permanentlyDismissedForPage
+    && pageHasAutofillTargets();
   widget.classList.toggle("is-visible", shouldShow);
   widget.classList.toggle("is-hidden", !shouldShow);
 
@@ -3494,6 +3729,14 @@ function refreshFloatingWidgetVisibility() {
 }
 
 function pageHasAutofillTargets() {
+  if (isWorkdayAuthPage()) {
+    return detectFillableFields().some((field) => isLikelyAuthField(field));
+  }
+
+  if (isGoogleFormsPage()) {
+    return detectFillableFields().length >= 2 || detectRadioGroups().length > 0;
+  }
+
   if (isWorkdayPage()) {
     const workdayTargets = getJobApplicationFields();
     if (workdayTargets.length > 0) {

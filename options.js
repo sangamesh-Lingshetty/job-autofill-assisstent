@@ -37,6 +37,9 @@ const toggleCustomFieldsButton = document.getElementById("toggleCustomFieldsButt
 const customFieldsSection = document.getElementById("customFieldsSection");
 const customFieldForm = document.getElementById("customFieldForm");
 const customFieldsList = document.getElementById("customFieldsList");
+const editingCustomFieldKeyInput = document.getElementById("editingCustomFieldKey");
+const customFieldSubmitButton = document.getElementById("customFieldSubmitButton");
+const cancelCustomFieldEditButton = document.getElementById("cancelCustomFieldEditButton");
 
 document.addEventListener("DOMContentLoaded", initializeOptionsPage);
 form.addEventListener("submit", handleSave);
@@ -44,6 +47,7 @@ form.addEventListener("input", handleAutoSaveInput);
 form.addEventListener("change", handleAutoSaveChange);
 toggleCustomFieldsButton.addEventListener("click", toggleCustomFieldsSection);
 customFieldForm.addEventListener("submit", handleCustomFieldSubmit);
+cancelCustomFieldEditButton.addEventListener("click", resetCustomFieldEditor);
 
 async function initializeOptionsPage() {
   const [profile, customFields] = await Promise.all([
@@ -143,6 +147,7 @@ async function handleCustomFieldSubmit(event) {
   event.preventDefault();
 
   const formData = new FormData(customFieldForm);
+  const editingKey = normalizeCustomFieldKey(formData.get("editingCustomFieldKey"));
   const fieldKey = normalizeCustomFieldKey(formData.get("customFieldKey"));
   const keywords = String(formData.get("customFieldKeywords") || "")
     .split(",")
@@ -156,6 +161,10 @@ async function handleCustomFieldSubmit(event) {
   }
 
   const customFields = await getStoredCustomFields();
+  if (editingKey && editingKey !== fieldKey) {
+    delete customFields[editingKey];
+  }
+
   customFields[fieldKey] = {
     keywords,
     value
@@ -163,11 +172,11 @@ async function handleCustomFieldSubmit(event) {
 
   await chrome.storage.local.set({ [CUSTOM_FIELDS_STORAGE_KEY]: customFields });
   await syncCustomFieldsToActiveTab(customFields);
-  customFieldForm.reset();
+  resetCustomFieldEditor();
   renderCustomFields(customFields);
   customFieldsSection.hidden = false;
   toggleCustomFieldsButton.textContent = "Hide Custom Fields";
-  showStatus("Custom field saved.");
+  showStatus(editingKey ? "Custom field updated." : "Custom field saved.");
 }
 
 function renderCustomFields(customFields) {
@@ -190,14 +199,48 @@ function renderCustomFields(customFields) {
           <p>${escapeHtml((config.keywords || []).join(", "))}</p>
           <span>${escapeHtml(config.value || "")}</span>
         </div>
-        <button type="button" class="jaa-button jaa-button--ghost jaa-button--compact" data-delete-custom-field="${escapeHtml(fieldKey)}">Delete</button>
+        <div class="jaa-custom-field-item__actions">
+          <button type="button" class="jaa-button jaa-button--ghost jaa-button--compact" data-edit-custom-field="${escapeHtml(fieldKey)}">Edit</button>
+          <button type="button" class="jaa-button jaa-button--ghost jaa-button--compact" data-delete-custom-field="${escapeHtml(fieldKey)}">Delete</button>
+        </div>
       </article>
     `)
     .join("");
 
+  for (const button of customFieldsList.querySelectorAll("[data-edit-custom-field]")) {
+    button.addEventListener("click", handleEditCustomField);
+  }
+
   for (const button of customFieldsList.querySelectorAll("[data-delete-custom-field]")) {
     button.addEventListener("click", handleDeleteCustomField);
   }
+}
+
+async function handleEditCustomField(event) {
+  const fieldKey = event.currentTarget.getAttribute("data-edit-custom-field");
+  if (!fieldKey) {
+    return;
+  }
+
+  const customFields = await getStoredCustomFields();
+  const config = customFields[fieldKey];
+  if (!config) {
+    showStatus("That custom field could not be found.", true);
+    return;
+  }
+
+  editingCustomFieldKeyInput.value = fieldKey;
+  customFieldForm.customFieldKey.value = fieldKey;
+  customFieldForm.customFieldKeywords.value = Array.isArray(config.keywords)
+    ? config.keywords.join(", ")
+    : "";
+  customFieldForm.customFieldValue.value = String(config.value || "");
+  customFieldSubmitButton.textContent = "Update Custom Field";
+  cancelCustomFieldEditButton.hidden = false;
+  customFieldsSection.hidden = false;
+  toggleCustomFieldsButton.textContent = "Hide Custom Fields";
+  customFieldForm.customFieldKey.focus();
+  showStatus("Editing custom field.");
 }
 
 async function handleDeleteCustomField(event) {
@@ -210,8 +253,18 @@ async function handleDeleteCustomField(event) {
   delete customFields[fieldKey];
   await chrome.storage.local.set({ [CUSTOM_FIELDS_STORAGE_KEY]: customFields });
   await syncCustomFieldsToActiveTab(customFields);
+  if (normalizeCustomFieldKey(editingCustomFieldKeyInput.value) === fieldKey) {
+    resetCustomFieldEditor();
+  }
   renderCustomFields(customFields);
   showStatus("Custom field deleted.");
+}
+
+function resetCustomFieldEditor() {
+  customFieldForm.reset();
+  editingCustomFieldKeyInput.value = "";
+  customFieldSubmitButton.textContent = "Add Custom Field";
+  cancelCustomFieldEditButton.hidden = true;
 }
 
 async function syncCustomFieldsToActiveTab(customFields) {
